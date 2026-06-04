@@ -102,7 +102,8 @@ export default function PredictionsPage() {
         .select('id, team_id, name, active, team_abr')
         .or('active.eq.true,active.is.null')
         .order('team_abr', { ascending: true })
-        .order('name', { ascending: true }),
+        .order('name', { ascending: true })
+        .range(0, 5000),
     ]);
 
     if (matchesError) return setMessage(`Erreur matchs: ${matchesError.message}`);
