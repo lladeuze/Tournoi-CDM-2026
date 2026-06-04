@@ -63,36 +63,37 @@ const bonusAllowedPhases = [
 ];
 
 const flagsByCode: Record<string, string> = {
-  ARG: '🇦🇷',
-  AUS: '🇦🇺',
-  AUT: '🇦🇹',
-  BEL: '🇧🇪',
-  BRA: '🇧🇷',
+  MEX: '🇲🇽',
+  RSA: '🇿🇦',
+  KOR: '🇰🇷',
+  CZE: '🇨🇿',
   CAN: '🇨🇦',
-  CHI: '🇨🇱',
-  COL: '🇨🇴',
-  CRO: '🇭🇷',
-  DEN: '🇩🇰',
-  ECU: '🇪🇨',
-  ENG: '🏴',
-  ESP: '🇪🇸',
+  BEL: '🇧🇪',
   FRA: '🇫🇷',
+  SWE: '🇸🇪',
+  BRA: '🇧🇷',
+  ARG: '🇦🇷',
   GER: '🇩🇪',
-  GHA: '🇬🇭',
+  ESP: '🇪🇸',
+  POR: '🇵🇹',
+  ENG: '🏴',
+  USA: '🇺🇸',
+  NED: '🇳🇱',
   ITA: '🇮🇹',
   JPN: '🇯🇵',
-  KOR: '🇰🇷',
   MAR: '🇲🇦',
-  MEX: '🇲🇽',
-  NED: '🇳🇱',
-  POL: '🇵🇱',
-  POR: '🇵🇹',
-  RSA: '🇿🇦',
   SEN: '🇸🇳',
-  SWE: '🇸🇪',
-  SUI: '🇨🇭',
+  GHA: '🇬🇭',
   URU: '🇺🇾',
-  USA: '🇺🇸',
+  COL: '🇨🇴',
+  CHI: '🇨🇱',
+  ECU: '🇪🇨',
+  AUS: '🇦🇺',
+  DEN: '🇩🇰',
+  CRO: '🇭🇷',
+  SUI: '🇨🇭',
+  POL: '🇵🇱',
+  AUT: '🇦🇹',
 };
 
 export default function PredictionsPage() {
@@ -172,6 +173,7 @@ export default function PredictionsPage() {
 
     matches.forEach((match) => {
       const prediction = predictions[match.id];
+
       if (prediction?.double_bonus) {
         used[match.phase] = match.id;
       }
@@ -193,8 +195,11 @@ export default function PredictionsPage() {
   }
 
   function getTeamFlag(team: Team | null) {
-    if (!team?.code) return '🏳️';
-    return flagsByCode[team.code] || '🏳️';
+    const code = team?.code?.trim().toUpperCase();
+
+    if (!code) return '🏳️';
+
+    return flagsByCode[code] || '🏳️';
   }
 
   function getMatchPlayers(match: Match) {
@@ -469,8 +474,19 @@ export default function PredictionsPage() {
                 const filteredAvailablePlayers = getFilteredMatchPlayers(match);
 
                 const selectedPlayer = p?.predicted_first_scorer_id
-                  ? players.find((player) => player.id === p.predicted_first_scorer_id)
+                  ? players.find(
+                      (player) => player.id === p.predicted_first_scorer_id
+                    ) ||
+                    getMatchPlayers(match).find(
+                      (player) => player.id === p.predicted_first_scorer_id
+                    )
                   : null;
+
+                const selectedScorerLabel = selectedPlayer
+                  ? `${selectedPlayer.name} — ${getPlayerAbr(selectedPlayer)}`
+                  : p?.predicted_first_scorer
+                  ? p.predicted_first_scorer
+                  : 'Aucun buteur';
 
                 const bonusUsedForPhase = bonusUsedByPhase[match.phase];
                 const bonusUnavailable =
@@ -631,9 +647,7 @@ export default function PredictionsPage() {
                               cursor: locked ? 'not-allowed' : 'pointer',
                             }}
                           >
-                            {selectedPlayer
-                              ? `${selectedPlayer.name} — ${getPlayerAbr(selectedPlayer)}`
-                              : 'Aucun buteur'}
+                            {selectedScorerLabel}
                             <span style={{ float: 'right' }}>⌄</span>
                           </button>
 
