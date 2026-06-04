@@ -15,6 +15,7 @@ type Player = {
   team_id: string;
   name: string;
   active: boolean | null;
+  team_abr: string | null;
 };
 
 type Match = {
@@ -91,11 +92,9 @@ export default function PredictionsPage() {
       supabase.from('matches').select('*').order('kickoff_at', { ascending: true }),
       supabase.from('predictions').select('*').eq('user_id', user.id),
       supabase.from('teams').select('*').order('name', { ascending: true }),
-
-      // Important : accepte active = true OU active = null
       supabase
         .from('players')
-        .select('id, team_id, name, active')
+        .select('id, team_id, name, active, team_abr')
         .or('active.eq.true,active.is.null')
         .order('name', { ascending: true }),
     ]);
@@ -262,7 +261,16 @@ export default function PredictionsPage() {
           const homeTeam = match.home_team_id ? teams[match.home_team_id] : null;
           const awayTeam = match.away_team_id ? teams[match.away_team_id] : null;
 
-          const availablePlayers = getMatchPlayers(match);
+          const availablePlayers = getMatchPlayers(match).sort((a, b) => {
+            const teamA = a.team_abr || teams[a.team_id]?.code || '';
+            const teamB = b.team_abr || teams[b.team_id]?.code || '';
+
+            if (teamA !== teamB) {
+              return teamA.localeCompare(teamB);
+            }
+
+            return a.name.localeCompare(b.name);
+          });
 
           const bonusUsedForPhase = bonusUsedByPhase[match.phase];
           const bonusUnavailable =
@@ -371,7 +379,7 @@ export default function PredictionsPage() {
 
                 {availablePlayers.map((player) => (
                   <option key={player.id} value={player.id}>
-                    {player.name} — {teams[player.team_id]?.name || 'Équipe inconnue'}
+                    {player.name} — {player.team_abr || teams[player.team_id]?.code || '???'}
                   </option>
                 ))}
               </select>
