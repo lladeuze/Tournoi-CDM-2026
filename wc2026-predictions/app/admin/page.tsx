@@ -44,13 +44,17 @@ const phaseLabels: Record<string, string> = {
   final: 'Finale',
 };
 
-const allStatuses = ['all', 'scheduled', 'live', 'finished'];
+const statuses = ['all', 'scheduled', 'live', 'finished'];
 
 export default function AdminPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [matches, setMatches] = useState<Match[]>([]);
   const [teams, setTeams] = useState<Record<string, Team>>({});
   const [players, setPlayers] = useState<Player[]>([]);
+  const [playersByMatch, setPlayersByMatch] = useState<Record<string, Player[]>>({});
+  const [loadingPlayersForMatch, setLoadingPlayersForMatch] = useState<string | null>(null);
+  const [openScorerForMatch, setOpenScorerForMatch] = useState<string | null>(null);
+  const [playerSearchByMatch, setPlayerSearchByMatch] = useState<Record<string, string>>({});
   const [message, setMessage] = useState('');
   const [phaseFilter, setPhaseFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -98,16 +102,9 @@ export default function AdminPage() {
     const [
       { data: matchesData, error: matchesError },
       { data: teamsData, error: teamsError },
-      { data: playersData, error: playersError },
     ] = await Promise.all([
       supabase.from('matches').select('*').order('kickoff_at', { ascending: true }),
       supabase.from('teams').select('*').order('name', { ascending: true }),
-      supabase
-        .from('players')
-        .select('id, team_id, name, active, team_abr')
-        .or('active.eq.true,active.is.null')
-        .order('team_abr', { ascending: true })
-        .order('name', { ascending: true }),
     ]);
 
     if (matchesError) {
@@ -120,11 +117,6 @@ export default function AdminPage() {
       return;
     }
 
-    if (playersError) {
-      setMessage(`Erreur joueurs : ${playersError.message}`);
-      return;
-    }
-
     const teamsById: Record<string, Team> = {};
 
     (teamsData || []).forEach((team: Team) => {
@@ -132,7 +124,6 @@ export default function AdminPage() {
     });
 
     setTeams(teamsById);
-    setPlayers(playersData || []);
     setMatches(matchesData || []);
   }
 
@@ -165,11 +156,78 @@ export default function AdminPage() {
     return teams[teamId]?.code || '';
   }
 
-  function getPlayersForMatch(match: Match) {
+  function getPlayerAbr(player: Player) {
+    return player.team_abr || (player.team_id ? teams[player.team_id]?.code : null) || '???';
+  }
+
+  function getMatchPlayers(match: Match) {
+    return playersByMatch[match.id] || [];
+  }
+
+  function getFilteredMatchPlayers(match: Match) {
+    const query = (playerSearchByMatch[match.id] || '').toLowerCase().trim();
+
+    return getMatchPlayers(match).filter((player) => {
+      const label = `${player.name} ${getPlayerAbr(player)}`;
+      return label.toLowerCase().includes(query);
+    });
+  }
+
+  async function openScorerDropdown(match: Match) {
+    if (openScorerForMatch === match.id) {
+      setOpenScorerForMatch(null);
+      return;
+    }
+
+    setOpenScorerForMatch(match.id);
+
+    if (playersByMatch[match.id]) return;
+
     const teamIds = [match.home_team_id, match.away_team_id].filter(Boolean);
 
-    return players.filter((player) => {
-      return player.team_id && teamIds.includes(player.team_id);
+    if (teamIds.length === 0) {
+      setPlayersByMatch((current) => ({
+        ...current,
+        [match.id]: [],
+      }));
+      return;
+    }
+
+    setLoadingPlayersForMatch(match.id);
+
+    const { data, error } = await supabase
+      .from('players')
+      .select('id, team_id, name, active, team_abr')
+      .in('team_id', teamIds)
+      .or('active.eq.true,active.is.null')
+      .order('team_abr', { ascending: true })
+      .order('name', { ascending: true })
+      .range(0, 200);
+
+    setLoadingPlayersForMatch(null);
+
+    if (error) {
+      setMessage(`Erreur joueurs : ${error.message}`);
+      return;
+    }
+
+    const sortedPlayers = (data || []).sort((a: Player, b: Player) => {
+      const teamA = getPlayerAbr(a);
+      const teamB = getPlayerAbr(b);
+
+      if (teamA !== teamB) return teamA.localeCompare(teamB);
+      return a.name.localeCompare(b.name);
+    });
+
+    setPlayersByMatch((current) => ({
+      ...current,
+      [match.id]: sortedPlayers,
+    }));
+
+    setPlayers((current) => {
+      const existingIds = new Set(current.map((player) => player.id));
+      const newPlayers = sortedPlayers.filter((player) => !existingIds.has(player.id));
+      return [...current, ...newPlayers];
     });
   }
 
@@ -185,12 +243,28 @@ export default function AdminPage() {
           };
         }
 
+        if (field === 'status') {
+          return {
+            ...match,
+            status: value as Match['status'],
+          };
+        }
+
         return {
           ...match,
           [field]: value === '' ? null : value,
         };
       })
     );
+  }
+
+  function selectScorer(match: Match, playerId: string) {
+    editMatch(match.id, 'first_scorer_id', playerId);
+    setOpenScorerForMatch(null);
+    setPlayerSearchByMatch((current) => ({
+      ...current,
+      [match.id]: '',
+    }));
   }
 
   async function saveMatch(match: Match) {
@@ -251,7 +325,7 @@ export default function AdminPage() {
               <div>
                 <label>Statut</label>
                 <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-                  {allStatuses.map((status) => (
+                  {statuses.map((status) => (
                     <option key={status} value={status}>
                       {status === 'all' ? 'Tous les statuts' : status}
                     </option>
@@ -275,7 +349,14 @@ export default function AdminPage() {
             const awayName = getTeamName(match.away_team_id, match.away_team);
             const homeCode = getTeamCode(match.home_team_id);
             const awayCode = getTeamCode(match.away_team_id);
-            const matchPlayers = getPlayersForMatch(match);
+
+            const availablePlayers = getMatchPlayers(match);
+            const filteredPlayers = getFilteredMatchPlayers(match);
+            const scorerDropdownOpen = openScorerForMatch === match.id;
+
+            const selectedPlayer = match.first_scorer_id
+              ? players.find((player) => player.id === match.first_scorer_id)
+              : null;
 
             return (
               <div className="card" key={match.id}>
@@ -338,27 +419,6 @@ export default function AdminPage() {
                   </div>
 
                   <div>
-                    <label>Premier buteur</label>
-                    <select
-                      value={match.first_scorer_id ?? ''}
-                      onChange={(e) => editMatch(match.id, 'first_scorer_id', e.target.value)}
-                    >
-                      <option value="">Aucun buteur</option>
-
-                      {matchPlayers.map((player) => (
-                        <option key={player.id} value={player.id}>
-                          {player.name}
-                          {player.team_abr ? ` — ${player.team_abr}` : ''}
-                        </option>
-                      ))}
-                    </select>
-
-                    {matchPlayers.length === 0 && (
-                      <p className="small error">Aucun joueur trouvé pour ce match.</p>
-                    )}
-                  </div>
-
-                  <div>
                     <label>Statut</label>
                     <select
                       value={match.status}
@@ -370,6 +430,119 @@ export default function AdminPage() {
                     </select>
                   </div>
                 </div>
+
+                <label>Premier buteur</label>
+
+                <div style={{ position: 'relative' }}>
+                  <button
+                    type="button"
+                    onClick={() => openScorerDropdown(match)}
+                    style={{
+                      width: '100%',
+                      textAlign: 'left',
+                      border: '1px solid rgba(255,255,255,0.14)',
+                      background: 'rgba(15,23,42,0.9)',
+                      color: 'white',
+                      borderRadius: 10,
+                      padding: '12px 14px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {selectedPlayer
+                      ? `${selectedPlayer.name} — ${getPlayerAbr(selectedPlayer)}`
+                      : 'Aucun buteur'}
+                    <span style={{ float: 'right' }}>⌄</span>
+                  </button>
+
+                  {scorerDropdownOpen && (
+                    <div
+                      style={{
+                        marginTop: 8,
+                        border: '1px solid rgba(255,255,255,0.14)',
+                        background: '#0f172a',
+                        borderRadius: 12,
+                        padding: 10,
+                        maxHeight: 320,
+                        overflow: 'hidden',
+                        boxShadow: '0 20px 40px rgba(0,0,0,0.35)',
+                      }}
+                    >
+                      <input
+                        autoFocus
+                        type="text"
+                        placeholder="Rechercher un joueur..."
+                        value={playerSearchByMatch[match.id] || ''}
+                        onChange={(e) =>
+                          setPlayerSearchByMatch((current) => ({
+                            ...current,
+                            [match.id]: e.target.value,
+                          }))
+                        }
+                        style={{ marginBottom: 8 }}
+                      />
+
+                      {loadingPlayersForMatch === match.id && (
+                        <p className="small">Chargement des joueurs...</p>
+                      )}
+
+                      <div
+                        style={{
+                          maxHeight: 230,
+                          overflowY: 'auto',
+                          display: 'grid',
+                          gap: 4,
+                        }}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => selectScorer(match, '')}
+                          style={{
+                            textAlign: 'left',
+                            background: 'rgba(255,255,255,0.06)',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: 8,
+                            padding: '9px 10px',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Aucun buteur
+                        </button>
+
+                        {filteredPlayers.map((player) => (
+                          <button
+                            type="button"
+                            key={player.id}
+                            onClick={() => selectScorer(match, player.id)}
+                            style={{
+                              textAlign: 'left',
+                              background:
+                                match.first_scorer_id === player.id
+                                  ? 'rgba(94, 234, 212, 0.18)'
+                                  : 'transparent',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: 8,
+                              padding: '9px 10px',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            {player.name} — {getPlayerAbr(player)}
+                          </button>
+                        ))}
+                      </div>
+
+                      <p className="small" style={{ marginTop: 8 }}>
+                        {filteredPlayers.length} joueur(s) affiché(s) sur{' '}
+                        {availablePlayers.length}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {playersByMatch[match.id] && playersByMatch[match.id].length === 0 && (
+                  <p className="small error">Aucun joueur trouvé pour ce match.</p>
+                )}
 
                 <button style={{ marginTop: 12 }} onClick={() => saveMatch(match)}>
                   Sauvegarder résultat
