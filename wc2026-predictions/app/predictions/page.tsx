@@ -62,6 +62,39 @@ const bonusAllowedPhases = [
   'quarter',
 ];
 
+const flagsByCode: Record<string, string> = {
+  ARG: '🇦🇷',
+  AUS: '🇦🇺',
+  AUT: '🇦🇹',
+  BEL: '🇧🇪',
+  BRA: '🇧🇷',
+  CAN: '🇨🇦',
+  CHI: '🇨🇱',
+  COL: '🇨🇴',
+  CRO: '🇭🇷',
+  DEN: '🇩🇰',
+  ECU: '🇪🇨',
+  ENG: '🏴',
+  ESP: '🇪🇸',
+  FRA: '🇫🇷',
+  GER: '🇩🇪',
+  GHA: '🇬🇭',
+  ITA: '🇮🇹',
+  JPN: '🇯🇵',
+  KOR: '🇰🇷',
+  MAR: '🇲🇦',
+  MEX: '🇲🇽',
+  NED: '🇳🇱',
+  POL: '🇵🇱',
+  POR: '🇵🇹',
+  RSA: '🇿🇦',
+  SEN: '🇸🇳',
+  SWE: '🇸🇪',
+  SUI: '🇨🇭',
+  URU: '🇺🇾',
+  USA: '🇺🇸',
+};
+
 export default function PredictionsPage() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [teams, setTeams] = useState<Record<string, Team>>({});
@@ -157,6 +190,11 @@ export default function PredictionsPage() {
 
   function getPlayerAbr(player: Player) {
     return player.team_abr || (player.team_id ? teams[player.team_id]?.code : null) || '???';
+  }
+
+  function getTeamFlag(team: Team | null) {
+    if (!team?.code) return '🏳️';
+    return flagsByCode[team.code] || '🏳️';
   }
 
   function getMatchPlayers(match: Match) {
@@ -440,212 +478,293 @@ export default function PredictionsPage() {
 
                 const scorerDropdownOpen = openScorerForMatch === match.id;
 
+                const cardStateClass =
+                  p?.points >= 11
+                    ? 'perfect'
+                    : p?.points >= 7
+                    ? 'good'
+                    : p
+                    ? 'saved'
+                    : '';
+
                 return (
-                  <div className="card" key={match.id}>
+                  <div
+                    className={`card prediction-card ${cardStateClass} ${
+                      locked ? 'locked' : ''
+                    }`}
+                    key={match.id}
+                  >
+                    <div className="points-pill">{p?.points ?? 0} pts</div>
+
+                    <div className="prediction-badges">
+                      {!p && <span className="badge pending">🟡 À pronostiquer</span>}
+
+                      {p && !locked && (
+                        <span className="badge saved">✅ Enregistré</span>
+                      )}
+
+                      {locked && <span className="badge locked">🔒 Verrouillé</span>}
+
+                      {match.status === 'finished' && (
+                        <span className="badge finished">🏁 Résultat disponible</span>
+                      )}
+
+                      {p?.double_bonus && (
+                        <span className="badge fire">🔥 BONUS x2</span>
+                      )}
+
+                      {p?.points >= 11 && (
+                        <span className="badge perfect">🏆 PERFECT</span>
+                      )}
+                    </div>
+
                     <p className="small">
                       {phaseLabels[match.phase] || match.phase} ·{' '}
                       {new Date(match.kickoff_at).toLocaleString('fr-BE')}
                     </p>
 
-                    <h2>
-                      {homeTeam?.name || match.home_team}
-                      {' - '}
-                      {awayTeam?.name || match.away_team}
-                    </h2>
-
-                    <div className="grid">
-                      <div>
-                        <label>{homeTeam?.name || match.home_team}</label>
-                        <input
-                          disabled={locked}
-                          type="number"
-                          min="0"
-                          value={p?.predicted_home_score ?? 0}
-                          onChange={(e) =>
-                            update(match, 'predicted_home_score', e.target.value)
-                          }
-                        />
+                    <div className="match-header">
+                      <div className="team-side">
+                        <div className="team-flag">{getTeamFlag(homeTeam)}</div>
+                        <div style={{ fontWeight: 900 }}>
+                          {homeTeam?.code || match.home_team}
+                        </div>
+                        <div className="team-code">
+                          {homeTeam?.name || match.home_team}
+                        </div>
                       </div>
 
-                      <div>
-                        <label>{awayTeam?.name || match.away_team}</label>
-                        <input
-                          disabled={locked}
-                          type="number"
-                          min="0"
-                          value={p?.predicted_away_score ?? 0}
-                          onChange={(e) =>
-                            update(match, 'predicted_away_score', e.target.value)
-                          }
-                        />
+                      <div
+                        style={{
+                          fontWeight: 900,
+                          fontSize: 24,
+                          color: '#5eead4',
+                        }}
+                      >
+                        VS
+                      </div>
+
+                      <div className="team-side">
+                        <div className="team-flag">{getTeamFlag(awayTeam)}</div>
+                        <div style={{ fontWeight: 900 }}>
+                          {awayTeam?.code || match.away_team}
+                        </div>
+                        <div className="team-code">
+                          {awayTeam?.name || match.away_team}
+                        </div>
                       </div>
                     </div>
 
-                    <label>Première équipe qui marque</label>
-                    <select
-                      disabled={locked}
-                      value={p?.predicted_first_scoring_team_id ?? ''}
-                      onChange={(e) =>
-                        update(match, 'predicted_first_scoring_team_id', e.target.value)
-                      }
+                    <div
+                      className="score-box"
+                      style={{ justifyContent: 'center', marginBottom: 14 }}
                     >
-                      <option value="">Aucune sélection</option>
-
-                      {match.home_team_id && (
-                        <option value={match.home_team_id}>
-                          {homeTeam?.name || match.home_team}
-                        </option>
-                      )}
-
-                      {match.away_team_id && (
-                        <option value={match.away_team_id}>
-                          {awayTeam?.name || match.away_team}
-                        </option>
-                      )}
-                    </select>
-
-                    <label>Premier buteur</label>
-
-                    <div style={{ position: 'relative' }}>
-                      <button
-                        type="button"
+                      <input
                         disabled={locked}
-                        onClick={() => openScorerDropdown(match)}
-                        style={{
-                          width: '100%',
-                          textAlign: 'left',
-                          border: '1px solid rgba(255,255,255,0.14)',
-                          background: 'rgba(15,23,42,0.9)',
-                          color: 'white',
-                          borderRadius: 10,
-                          padding: '12px 14px',
-                          cursor: locked ? 'not-allowed' : 'pointer',
-                        }}
-                      >
-                        {selectedPlayer
-                          ? `${selectedPlayer.name} — ${getPlayerAbr(selectedPlayer)}`
-                          : 'Aucun buteur'}
-                        <span style={{ float: 'right' }}>⌄</span>
-                      </button>
+                        type="number"
+                        min="0"
+                        value={p?.predicted_home_score ?? 0}
+                        onChange={(e) =>
+                          update(match, 'predicted_home_score', e.target.value)
+                        }
+                      />
 
-                      {scorerDropdownOpen && (
-                        <div
+                      <div className="score-separator">-</div>
+
+                      <input
+                        disabled={locked}
+                        type="number"
+                        min="0"
+                        value={p?.predicted_away_score ?? 0}
+                        onChange={(e) =>
+                          update(match, 'predicted_away_score', e.target.value)
+                        }
+                      />
+                    </div>
+
+                    <div className="compact-row">
+                      <div>
+                        <label>Première équipe qui marque</label>
+                        <select
+                          disabled={locked}
+                          value={p?.predicted_first_scoring_team_id ?? ''}
+                          onChange={(e) =>
+                            update(
+                              match,
+                              'predicted_first_scoring_team_id',
+                              e.target.value
+                            )
+                          }
+                        >
+                          <option value="">Aucune sélection</option>
+
+                          {match.home_team_id && (
+                            <option value={match.home_team_id}>
+                              {getTeamFlag(homeTeam)} {homeTeam?.name || match.home_team}
+                            </option>
+                          )}
+
+                          {match.away_team_id && (
+                            <option value={match.away_team_id}>
+                              {getTeamFlag(awayTeam)} {awayTeam?.name || match.away_team}
+                            </option>
+                          )}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label>Premier buteur</label>
+
+                        <div style={{ position: 'relative' }}>
+                          <button
+                            type="button"
+                            disabled={locked}
+                            onClick={() => openScorerDropdown(match)}
+                            style={{
+                              width: '100%',
+                              textAlign: 'left',
+                              border: '1px solid rgba(255,255,255,0.14)',
+                              background: 'rgba(15,23,42,0.9)',
+                              color: 'white',
+                              borderRadius: 10,
+                              padding: '12px 14px',
+                              cursor: locked ? 'not-allowed' : 'pointer',
+                            }}
+                          >
+                            {selectedPlayer
+                              ? `${selectedPlayer.name} — ${getPlayerAbr(selectedPlayer)}`
+                              : 'Aucun buteur'}
+                            <span style={{ float: 'right' }}>⌄</span>
+                          </button>
+
+                          {scorerDropdownOpen && (
+                            <div
+                              style={{
+                                marginTop: 8,
+                                border: '1px solid rgba(255,255,255,0.14)',
+                                background: '#0f172a',
+                                borderRadius: 12,
+                                padding: 10,
+                                maxHeight: 320,
+                                overflow: 'hidden',
+                                boxShadow: '0 20px 40px rgba(0,0,0,0.35)',
+                              }}
+                            >
+                              <input
+                                autoFocus
+                                type="text"
+                                placeholder="Rechercher un joueur..."
+                                value={playerSearchByMatch[match.id] || ''}
+                                onChange={(e) =>
+                                  setPlayerSearchByMatch((current) => ({
+                                    ...current,
+                                    [match.id]: e.target.value,
+                                  }))
+                                }
+                                style={{ marginBottom: 8 }}
+                              />
+
+                              {loadingPlayersForMatch === match.id && (
+                                <p className="small">Chargement des joueurs...</p>
+                              )}
+
+                              <div
+                                style={{
+                                  maxHeight: 230,
+                                  overflowY: 'auto',
+                                  display: 'grid',
+                                  gap: 4,
+                                }}
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => selectScorer(match, '')}
+                                  style={{
+                                    textAlign: 'left',
+                                    background: 'rgba(255,255,255,0.06)',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: 8,
+                                    padding: '9px 10px',
+                                    cursor: 'pointer',
+                                  }}
+                                >
+                                  Aucun buteur
+                                </button>
+
+                                {filteredAvailablePlayers.map((player) => (
+                                  <button
+                                    type="button"
+                                    key={player.id}
+                                    onClick={() => selectScorer(match, player.id)}
+                                    style={{
+                                      textAlign: 'left',
+                                      background:
+                                        p?.predicted_first_scorer_id === player.id
+                                          ? 'rgba(94, 234, 212, 0.18)'
+                                          : 'transparent',
+                                      color: 'white',
+                                      border: 'none',
+                                      borderRadius: 8,
+                                      padding: '9px 10px',
+                                      cursor: 'pointer',
+                                    }}
+                                  >
+                                    {player.name} — {getPlayerAbr(player)}
+                                  </button>
+                                ))}
+                              </div>
+
+                              <p className="small" style={{ marginTop: 8 }}>
+                                {filteredAvailablePlayers.length} joueur(s) affiché(s)
+                                sur {availablePlayers.length}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+
+                        {playersByMatch[match.id] &&
+                          playersByMatch[match.id].length === 0 && (
+                            <p className="small error">
+                              Aucun joueur trouvé pour ce match.
+                            </p>
+                          )}
+                      </div>
+
+                      {bonusAllowedPhases.includes(match.phase) && (
+                        <label
                           style={{
-                            marginTop: 8,
-                            border: '1px solid rgba(255,255,255,0.14)',
-                            background: '#0f172a',
-                            borderRadius: 12,
-                            padding: 10,
-                            maxHeight: 320,
-                            overflow: 'hidden',
-                            boxShadow: '0 20px 40px rgba(0,0,0,0.35)',
+                            display: 'flex',
+                            gap: 8,
+                            alignItems: 'center',
+                            marginTop: 10,
                           }}
                         >
                           <input
-                            autoFocus
-                            type="text"
-                            placeholder="Rechercher un joueur..."
-                            value={playerSearchByMatch[match.id] || ''}
+                            type="checkbox"
+                            disabled={locked || bonusUnavailable}
+                            checked={p?.double_bonus ?? false}
                             onChange={(e) =>
-                              setPlayerSearchByMatch((current) => ({
-                                ...current,
-                                [match.id]: e.target.value,
-                              }))
+                              update(match, 'double_bonus', e.target.checked)
                             }
-                            style={{ marginBottom: 8 }}
+                            style={{ width: 'auto' }}
                           />
 
-                          {loadingPlayersForMatch === match.id && (
-                            <p className="small">Chargement des joueurs...</p>
+                          <span>
+                            {p?.double_bonus ? '🔥 Bonus x2 activé' : 'Bonus x2'}
+                          </span>
+
+                          {bonusUnavailable && (
+                            <span className="small">
+                              déjà utilisé pour {phaseLabels[match.phase] || match.phase}
+                            </span>
                           )}
-
-                          <div
-                            style={{
-                              maxHeight: 230,
-                              overflowY: 'auto',
-                              display: 'grid',
-                              gap: 4,
-                            }}
-                          >
-                            <button
-                              type="button"
-                              onClick={() => selectScorer(match, '')}
-                              style={{
-                                textAlign: 'left',
-                                background: 'rgba(255,255,255,0.06)',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: 8,
-                                padding: '9px 10px',
-                                cursor: 'pointer',
-                              }}
-                            >
-                              Aucun buteur
-                            </button>
-
-                            {filteredAvailablePlayers.map((player) => (
-                              <button
-                                type="button"
-                                key={player.id}
-                                onClick={() => selectScorer(match, player.id)}
-                                style={{
-                                  textAlign: 'left',
-                                  background:
-                                    p?.predicted_first_scorer_id === player.id
-                                      ? 'rgba(94, 234, 212, 0.18)'
-                                      : 'transparent',
-                                  color: 'white',
-                                  border: 'none',
-                                  borderRadius: 8,
-                                  padding: '9px 10px',
-                                  cursor: 'pointer',
-                                }}
-                              >
-                                {player.name} — {getPlayerAbr(player)}
-                              </button>
-                            ))}
-                          </div>
-
-                          <p className="small" style={{ marginTop: 8 }}>
-                            {filteredAvailablePlayers.length} joueur(s) affiché(s) sur{' '}
-                            {availablePlayers.length}
-                          </p>
-                        </div>
+                        </label>
                       )}
                     </div>
 
-                    {playersByMatch[match.id] &&
-                      playersByMatch[match.id].length === 0 && (
-                        <p className="small error">
-                          Aucun joueur trouvé pour ce match.
-                        </p>
-                      )}
-
-                    {bonusAllowedPhases.includes(match.phase) && (
-                      <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                        <input
-                          type="checkbox"
-                          disabled={locked || bonusUnavailable}
-                          checked={p?.double_bonus ?? false}
-                          onChange={(e) =>
-                            update(match, 'double_bonus', e.target.checked)
-                          }
-                        />
-
-                        Bonus x2
-
-                        {bonusUnavailable && (
-                          <span className="small">
-                            déjà utilisé pour {phaseLabels[match.phase] || match.phase}
-                          </span>
-                        )}
-                      </label>
-                    )}
-
-                    <p className="small">Points actuels : {p?.points ?? 0}</p>
-
                     <button disabled={locked} onClick={() => save(match)}>
-                      {locked ? 'Verrouillé' : 'Sauvegarder'}
+                      {locked ? 'Verrouillé' : p ? 'Mettre à jour' : 'Sauvegarder'}
                     </button>
                   </div>
                 );
