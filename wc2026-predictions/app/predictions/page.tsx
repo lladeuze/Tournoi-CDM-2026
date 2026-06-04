@@ -66,6 +66,8 @@ export default function PredictionsPage() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [teams, setTeams] = useState<Record<string, Team>>({});
   const [players, setPlayers] = useState<Player[]>([]);
+  const [playersByMatch, setPlayersByMatch] = useState<Record<string, Player[]>>({});
+  const [loadingPlayersForMatch, setLoadingPlayersForMatch] = useState<string | null>(null);
   const [predictions, setPredictions] = useState<Record<string, Prediction>>({});
   const [userId, setUserId] = useState<string | null>(null);
   const [message, setMessage] = useState('');
@@ -92,27 +94,17 @@ export default function PredictionsPage() {
       { data: matchesData, error: matchesError },
       { data: predictionsData, error: predictionsError },
       { data: teamsData, error: teamsError },
-      { data: playersData, error: playersError },
     ] = await Promise.all([
       supabase.from('matches').select('*').order('kickoff_at', { ascending: true }),
       supabase.from('predictions').select('*').eq('user_id', user.id),
       supabase.from('teams').select('*').order('name', { ascending: true }),
-      supabase
-        .from('players')
-        .select('id, team_id, name, active, team_abr')
-        .or('active.eq.true,active.is.null')
-        .order('team_abr', { ascending: true })
-        .order('name', { ascending: true })
-        .range(0, 5000),
     ]);
 
     if (matchesError) return setMessage(`Erreur matchs: ${matchesError.message}`);
     if (predictionsError) return setMessage(`Erreur pronostics: ${predictionsError.message}`);
     if (teamsError) return setMessage(`Erreur équipes: ${teamsError.message}`);
-    if (playersError) return setMessage(`Erreur joueurs: ${playersError.message}`);
 
     setMatches(matchesData || []);
-    setPlayers(playersData || []);
 
     const teamsById: Record<string, Team> = {};
     (teamsData || []).forEach((team: Team) => {
@@ -163,41 +155,12 @@ export default function PredictionsPage() {
     );
   }
 
-  function getTeamCode(teamId: string | null) {
-    if (!teamId) return null;
-    return teams[teamId]?.code || null;
-  }
-
   function getPlayerAbr(player: Player) {
     return player.team_abr || (player.team_id ? teams[player.team_id]?.code : null) || '???';
   }
 
   function getMatchPlayers(match: Match) {
-    const teamIds = [match.home_team_id, match.away_team_id]
-      .filter(Boolean)
-      .map(String);
-
-    const teamCodes = [
-      getTeamCode(match.home_team_id),
-      getTeamCode(match.away_team_id),
-    ]
-      .filter(Boolean)
-      .map(String);
-
-    return players
-      .filter((player) => {
-        const playerTeamId = player.team_id ? String(player.team_id) : '';
-        const playerAbr = player.team_abr ? String(player.team_abr) : '';
-
-        return teamIds.includes(playerTeamId) || teamCodes.includes(playerAbr);
-      })
-      .sort((a, b) => {
-        const teamA = getPlayerAbr(a);
-        const teamB = getPlayerAbr(b);
-
-        if (teamA !== teamB) return teamA.localeCompare(teamB);
-        return a.name.localeCompare(b.name);
-      });
+    return playersByMatch[match.id] || [];
   }
 
   function getFilteredMatchPlayers(match: Match) {
@@ -206,6 +169,64 @@ export default function PredictionsPage() {
     return getMatchPlayers(match).filter((player) => {
       const label = `${player.name} ${getPlayerAbr(player)}`;
       return label.toLowerCase().includes(search);
+    });
+  }
+
+  async function openScorerDropdown(match: Match) {
+    if (openScorerForMatch === match.id) {
+      setOpenScorerForMatch(null);
+      return;
+    }
+
+    setOpenScorerForMatch(match.id);
+
+    if (playersByMatch[match.id]) return;
+
+    const teamIds = [match.home_team_id, match.away_team_id].filter(Boolean);
+
+    if (teamIds.length === 0) {
+      setPlayersByMatch((current) => ({
+        ...current,
+        [match.id]: [],
+      }));
+      return;
+    }
+
+    setLoadingPlayersForMatch(match.id);
+
+    const { data, error } = await supabase
+      .from('players')
+      .select('id, team_id, name, active, team_abr')
+      .in('team_id', teamIds)
+      .or('active.eq.true,active.is.null')
+      .order('team_abr', { ascending: true })
+      .order('name', { ascending: true })
+      .range(0, 200);
+
+    setLoadingPlayersForMatch(null);
+
+    if (error) {
+      setMessage(`Erreur joueurs: ${error.message}`);
+      return;
+    }
+
+    const sortedPlayers = (data || []).sort((a: Player, b: Player) => {
+      const teamA = getPlayerAbr(a);
+      const teamB = getPlayerAbr(b);
+
+      if (teamA !== teamB) return teamA.localeCompare(teamB);
+      return a.name.localeCompare(b.name);
+    });
+
+    setPlayersByMatch((current) => ({
+      ...current,
+      [match.id]: sortedPlayers,
+    }));
+
+    setPlayers((current) => {
+      const existingIds = new Set(current.map((player) => player.id));
+      const newPlayers = sortedPlayers.filter((player) => !existingIds.has(player.id));
+      return [...current, ...newPlayers];
     });
   }
 
@@ -489,11 +510,7 @@ export default function PredictionsPage() {
                       <button
                         type="button"
                         disabled={locked}
-                        onClick={() =>
-                          setOpenScorerForMatch((current) =>
-                            current === match.id ? null : match.id
-                          )
-                        }
+                        onClick={() => openScorerDropdown(match)}
                         style={{
                           width: '100%',
                           textAlign: 'left',
@@ -537,6 +554,10 @@ export default function PredictionsPage() {
                             }
                             style={{ marginBottom: 8 }}
                           />
+
+                          {loadingPlayersForMatch === match.id && (
+                            <p className="small">Chargement des joueurs...</p>
+                          )}
 
                           <div
                             style={{
@@ -593,13 +614,12 @@ export default function PredictionsPage() {
                       )}
                     </div>
 
-                    {availablePlayers.length === 0 && (
-                      <p className="small error">
-                        Aucun joueur trouvé pour ce match. Vérifie les codes :{' '}
-                        {getTeamCode(match.home_team_id) || '???'} /{' '}
-                        {getTeamCode(match.away_team_id) || '???'}.
-                      </p>
-                    )}
+                    {playersByMatch[match.id] &&
+                      playersByMatch[match.id].length === 0 && (
+                        <p className="small error">
+                          Aucun joueur trouvé pour ce match.
+                        </p>
+                      )}
 
                     {bonusAllowedPhases.includes(match.phase) && (
                       <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
