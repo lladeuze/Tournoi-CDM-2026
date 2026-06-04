@@ -12,7 +12,7 @@ type Team = {
 
 type Player = {
   id: string;
-  team_id: string;
+  team_id: string | null;
   name: string;
   active: boolean | null;
   team_abr: string | null;
@@ -71,6 +71,7 @@ export default function PredictionsPage() {
   const [message, setMessage] = useState('');
   const [selectedPhases, setSelectedPhases] = useState<string[]>(visiblePhaseFilters);
   const [playerSearchByMatch, setPlayerSearchByMatch] = useState<Record<string, string>>({});
+  const [openScorerForMatch, setOpenScorerForMatch] = useState<string | null>(null);
 
   useEffect(() => {
     load();
@@ -161,16 +162,37 @@ export default function PredictionsPage() {
     );
   }
 
+  function getTeamCode(teamId: string | null) {
+    if (!teamId) return null;
+    return teams[teamId]?.code || null;
+  }
+
+  function getPlayerAbr(player: Player) {
+    return player.team_abr || (player.team_id ? teams[player.team_id]?.code : null) || '???';
+  }
+
   function getMatchPlayers(match: Match) {
     const teamIds = [match.home_team_id, match.away_team_id]
       .filter(Boolean)
       .map(String);
 
+    const teamCodes = [
+      getTeamCode(match.home_team_id),
+      getTeamCode(match.away_team_id),
+    ]
+      .filter(Boolean)
+      .map(String);
+
     return players
-      .filter((player) => teamIds.includes(String(player.team_id)))
+      .filter((player) => {
+        const playerTeamId = player.team_id ? String(player.team_id) : '';
+        const playerAbr = player.team_abr ? String(player.team_abr) : '';
+
+        return teamIds.includes(playerTeamId) || teamCodes.includes(playerAbr);
+      })
       .sort((a, b) => {
-        const teamA = a.team_abr || teams[a.team_id]?.code || '';
-        const teamB = b.team_abr || teams[b.team_id]?.code || '';
+        const teamA = getPlayerAbr(a);
+        const teamB = getPlayerAbr(b);
 
         if (teamA !== teamB) return teamA.localeCompare(teamB);
         return a.name.localeCompare(b.name);
@@ -181,7 +203,7 @@ export default function PredictionsPage() {
     const search = (playerSearchByMatch[match.id] || '').toLowerCase().trim();
 
     return getMatchPlayers(match).filter((player) => {
-      const label = `${player.name} ${player.team_abr || teams[player.team_id]?.code || ''}`;
+      const label = `${player.name} ${getPlayerAbr(player)}`;
       return label.toLowerCase().includes(search);
     });
   }
@@ -231,6 +253,15 @@ export default function PredictionsPage() {
         [match.id]: next,
       };
     });
+  }
+
+  function selectScorer(match: Match, playerId: string) {
+    update(match, 'predicted_first_scorer_id', playerId);
+    setOpenScorerForMatch(null);
+    setPlayerSearchByMatch((current) => ({
+      ...current,
+      [match.id]: '',
+    }));
   }
 
   async function save(match: Match) {
@@ -290,20 +321,54 @@ export default function PredictionsPage() {
 
   return (
     <main className="container">
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16 }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          gap: 16,
+          alignItems: 'flex-start',
+          flexWrap: 'wrap',
+          marginBottom: 24,
+        }}
+      >
         <h1>Mes pronostics</h1>
 
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-          {visiblePhaseFilters.map((phase) => (
-            <label key={phase} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-              <input
-                type="checkbox"
-                checked={selectedPhases.includes(phase)}
-                onChange={() => togglePhase(phase)}
-              />
-              {phaseLabels[phase]}
-            </label>
-          ))}
+        <div
+          style={{
+            display: 'flex',
+            gap: 8,
+            padding: 8,
+            border: '1px solid rgba(255,255,255,0.12)',
+            borderRadius: 999,
+            background: 'rgba(255,255,255,0.04)',
+          }}
+        >
+          {visiblePhaseFilters.map((phase) => {
+            const active = selectedPhases.includes(phase);
+
+            return (
+              <button
+                key={phase}
+                type="button"
+                onClick={() => togglePhase(phase)}
+                style={{
+                  border: active
+                    ? '1px solid rgba(94, 234, 212, 0.7)'
+                    : '1px solid rgba(255,255,255,0.12)',
+                  background: active
+                    ? 'rgba(94, 234, 212, 0.22)'
+                    : 'rgba(255,255,255,0.04)',
+                  color: active ? '#5eead4' : '#cbd5e1',
+                  borderRadius: 999,
+                  padding: '8px 14px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                {phaseLabels[phase].replace('Poules ', '')}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -322,8 +387,11 @@ export default function PredictionsPage() {
           <section key={phase} style={{ marginTop: 32 }}>
             <h2
               style={{
-                paddingBottom: 8,
-                borderBottom: '1px solid rgba(255,255,255,0.2)',
+                padding: '12px 16px',
+                borderRadius: 14,
+                background: 'rgba(255,255,255,0.05)',
+                border: '1px solid rgba(255,255,255,0.12)',
+                marginBottom: 18,
               }}
             >
               {phaseLabels[phase]}
@@ -347,6 +415,8 @@ export default function PredictionsPage() {
                 const bonusUsedForPhase = bonusUsedByPhase[match.phase];
                 const bonusUnavailable =
                   !!bonusUsedForPhase && bonusUsedForPhase !== match.id;
+
+                const scorerDropdownOpen = openScorerForMatch === match.id;
 
                 return (
                   <div className="card" key={match.id}>
@@ -414,54 +484,119 @@ export default function PredictionsPage() {
 
                     <label>Premier buteur</label>
 
-                    {selectedPlayer && (
-                      <p className="small">
-                        Sélection actuelle : {selectedPlayer.name} —{' '}
-                        {selectedPlayer.team_abr ||
-                          teams[selectedPlayer.team_id]?.code ||
-                          '???'}
-                      </p>
-                    )}
+                    <div style={{ position: 'relative' }}>
+                      <button
+                        type="button"
+                        disabled={locked}
+                        onClick={() =>
+                          setOpenScorerForMatch((current) =>
+                            current === match.id ? null : match.id
+                          )
+                        }
+                        style={{
+                          width: '100%',
+                          textAlign: 'left',
+                          border: '1px solid rgba(255,255,255,0.14)',
+                          background: 'rgba(15,23,42,0.9)',
+                          color: 'white',
+                          borderRadius: 10,
+                          padding: '12px 14px',
+                          cursor: locked ? 'not-allowed' : 'pointer',
+                        }}
+                      >
+                        {selectedPlayer
+                          ? `${selectedPlayer.name} — ${getPlayerAbr(selectedPlayer)}`
+                          : 'Aucun buteur'}
+                        <span style={{ float: 'right' }}>⌄</span>
+                      </button>
 
-                    <input
-                      disabled={locked}
-                      type="text"
-                      placeholder="Rechercher un joueur..."
-                      value={playerSearchByMatch[match.id] || ''}
-                      onChange={(e) =>
-                        setPlayerSearchByMatch((current) => ({
-                          ...current,
-                          [match.id]: e.target.value,
-                        }))
-                      }
-                    />
+                      {scorerDropdownOpen && (
+                        <div
+                          style={{
+                            marginTop: 8,
+                            border: '1px solid rgba(255,255,255,0.14)',
+                            background: '#0f172a',
+                            borderRadius: 12,
+                            padding: 10,
+                            maxHeight: 320,
+                            overflow: 'hidden',
+                            boxShadow: '0 20px 40px rgba(0,0,0,0.35)',
+                          }}
+                        >
+                          <input
+                            autoFocus
+                            type="text"
+                            placeholder="Rechercher un joueur..."
+                            value={playerSearchByMatch[match.id] || ''}
+                            onChange={(e) =>
+                              setPlayerSearchByMatch((current) => ({
+                                ...current,
+                                [match.id]: e.target.value,
+                              }))
+                            }
+                            style={{ marginBottom: 8 }}
+                          />
 
-                    <select
-                      disabled={locked}
-                      size={8}
-                      value={p?.predicted_first_scorer_id ?? ''}
-                      onChange={(e) =>
-                        update(match, 'predicted_first_scorer_id', e.target.value)
-                      }
-                    >
-                      <option value="">Aucun buteur</option>
+                          <div
+                            style={{
+                              maxHeight: 230,
+                              overflowY: 'auto',
+                              display: 'grid',
+                              gap: 4,
+                            }}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => selectScorer(match, '')}
+                              style={{
+                                textAlign: 'left',
+                                background: 'rgba(255,255,255,0.06)',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: 8,
+                                padding: '9px 10px',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              Aucun buteur
+                            </button>
 
-                      {filteredAvailablePlayers.map((player) => (
-                        <option key={player.id} value={player.id}>
-                          {player.name} —{' '}
-                          {player.team_abr || teams[player.team_id]?.code || '???'}
-                        </option>
-                      ))}
-                    </select>
+                            {filteredAvailablePlayers.map((player) => (
+                              <button
+                                type="button"
+                                key={player.id}
+                                onClick={() => selectScorer(match, player.id)}
+                                style={{
+                                  textAlign: 'left',
+                                  background:
+                                    p?.predicted_first_scorer_id === player.id
+                                      ? 'rgba(94, 234, 212, 0.18)'
+                                      : 'transparent',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: 8,
+                                  padding: '9px 10px',
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                {player.name} — {getPlayerAbr(player)}
+                              </button>
+                            ))}
+                          </div>
 
-                    <p className="small">
-                      {filteredAvailablePlayers.length} joueur(s) affiché(s) sur{' '}
-                      {availablePlayers.length}
-                    </p>
+                          <p className="small" style={{ marginTop: 8 }}>
+                            {filteredAvailablePlayers.length} joueur(s) affiché(s) sur{' '}
+                            {availablePlayers.length}
+                          </p>
+                        </div>
+                      )}
+                    </div>
 
                     {availablePlayers.length === 0 && (
                       <p className="small error">
-                        Aucun joueur trouvé pour ce match.
+                        Aucun joueur trouvé pour ce match. Vérifie les codes :{' '}
+                        {getTeamCode(match.home_team_id) || '???'} /{' '}
+                        {getTeamCode(match.away_team_id) || '???'}.
                       </p>
                     )}
 
