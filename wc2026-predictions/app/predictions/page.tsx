@@ -51,6 +51,8 @@ const phaseLabels: Record<string, string> = {
   final: 'Finale',
 };
 
+const visiblePhaseFilters = ['group_j1', 'group_j2', 'group_j3'];
+
 const bonusAllowedPhases = [
   'group_j1',
   'group_j2',
@@ -67,6 +69,8 @@ export default function PredictionsPage() {
   const [predictions, setPredictions] = useState<Record<string, Prediction>>({});
   const [userId, setUserId] = useState<string | null>(null);
   const [message, setMessage] = useState('');
+  const [selectedPhases, setSelectedPhases] = useState<string[]>(visiblePhaseFilters);
+  const [playerSearchByMatch, setPlayerSearchByMatch] = useState<Record<string, string>>({});
 
   useEffect(() => {
     load();
@@ -96,6 +100,7 @@ export default function PredictionsPage() {
         .from('players')
         .select('id, team_id, name, active, team_abr')
         .or('active.eq.true,active.is.null')
+        .order('team_abr', { ascending: true })
         .order('name', { ascending: true }),
     ]);
 
@@ -120,6 +125,21 @@ export default function PredictionsPage() {
     setPredictions(byMatch);
   }
 
+  const filteredMatches = useMemo(() => {
+    return matches.filter((match) => selectedPhases.includes(match.phase));
+  }, [matches, selectedPhases]);
+
+  const matchesByPhase = useMemo(() => {
+    const grouped: Record<string, Match[]> = {};
+
+    filteredMatches.forEach((match) => {
+      if (!grouped[match.phase]) grouped[match.phase] = [];
+      grouped[match.phase].push(match);
+    });
+
+    return grouped;
+  }, [filteredMatches]);
+
   const bonusUsedByPhase = useMemo(() => {
     const used: Record<string, string> = {};
 
@@ -133,12 +153,37 @@ export default function PredictionsPage() {
     return used;
   }, [matches, predictions]);
 
+  function togglePhase(phase: string) {
+    setSelectedPhases((current) =>
+      current.includes(phase)
+        ? current.filter((p) => p !== phase)
+        : [...current, phase]
+    );
+  }
+
   function getMatchPlayers(match: Match) {
     const teamIds = [match.home_team_id, match.away_team_id]
       .filter(Boolean)
       .map(String);
 
-    return players.filter((player) => teamIds.includes(String(player.team_id)));
+    return players
+      .filter((player) => teamIds.includes(String(player.team_id)))
+      .sort((a, b) => {
+        const teamA = a.team_abr || teams[a.team_id]?.code || '';
+        const teamB = b.team_abr || teams[b.team_id]?.code || '';
+
+        if (teamA !== teamB) return teamA.localeCompare(teamB);
+        return a.name.localeCompare(b.name);
+      });
+  }
+
+  function getFilteredMatchPlayers(match: Match) {
+    const search = (playerSearchByMatch[match.id] || '').toLowerCase().trim();
+
+    return getMatchPlayers(match).filter((player) => {
+      const label = `${player.name} ${player.team_abr || teams[player.team_id]?.code || ''}`;
+      return label.toLowerCase().includes(search);
+    });
   }
 
   function update(match: Match, field: keyof Prediction, value: string | boolean) {
@@ -245,7 +290,22 @@ export default function PredictionsPage() {
 
   return (
     <main className="container">
-      <h1>Mes pronostics</h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16 }}>
+        <h1>Mes pronostics</h1>
+
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          {visiblePhaseFilters.map((phase) => (
+            <label key={phase} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <input
+                type="checkbox"
+                checked={selectedPhases.includes(phase)}
+                onChange={() => togglePhase(phase)}
+              />
+              {phaseLabels[phase]}
+            </label>
+          ))}
+        </div>
+      </div>
 
       {message && (
         <p className={message.includes('sauvegardé') ? 'success' : 'error'}>
@@ -253,173 +313,191 @@ export default function PredictionsPage() {
         </p>
       )}
 
-      <div className="grid">
-        {matches.map((match) => {
-          const locked = new Date(match.kickoff_at).getTime() <= Date.now();
-          const p = predictions[match.id];
+      {visiblePhaseFilters.map((phase) => {
+        const phaseMatches = matchesByPhase[phase] || [];
 
-          const homeTeam = match.home_team_id ? teams[match.home_team_id] : null;
-          const awayTeam = match.away_team_id ? teams[match.away_team_id] : null;
+        if (phaseMatches.length === 0) return null;
 
-          const availablePlayers = getMatchPlayers(match).sort((a, b) => {
-            const teamA = a.team_abr || teams[a.team_id]?.code || '';
-            const teamB = b.team_abr || teams[b.team_id]?.code || '';
+        return (
+          <section key={phase} style={{ marginTop: 32 }}>
+            <h2
+              style={{
+                paddingBottom: 8,
+                borderBottom: '1px solid rgba(255,255,255,0.2)',
+              }}
+            >
+              {phaseLabels[phase]}
+            </h2>
 
-            if (teamA !== teamB) {
-              return teamA.localeCompare(teamB);
-            }
+            <div className="grid">
+              {phaseMatches.map((match) => {
+                const locked = new Date(match.kickoff_at).getTime() <= Date.now();
+                const p = predictions[match.id];
 
-            return a.name.localeCompare(b.name);
-          });
+                const homeTeam = match.home_team_id ? teams[match.home_team_id] : null;
+                const awayTeam = match.away_team_id ? teams[match.away_team_id] : null;
 
-          const bonusUsedForPhase = bonusUsedByPhase[match.phase];
-          const bonusUnavailable =
-            !!bonusUsedForPhase && bonusUsedForPhase !== match.id;
+                const availablePlayers = getMatchPlayers(match);
+                const filteredAvailablePlayers = getFilteredMatchPlayers(match);
 
-          return (
-            <div className="card" key={match.id}>
-              <p className="small">
-                {phaseLabels[match.phase] || match.phase} ·{' '}
-                {new Date(match.kickoff_at).toLocaleString('fr-BE')}
-              </p>
+                const selectedPlayer = p?.predicted_first_scorer_id
+                  ? players.find((player) => player.id === p.predicted_first_scorer_id)
+                  : null;
 
-              <h2>
-                {homeTeam?.logo_url && (
-                  <img
-                    src={homeTeam.logo_url}
-                    alt={homeTeam.name}
-                    style={{
-                      width: 24,
-                      height: 24,
-                      objectFit: 'contain',
-                      marginRight: 8,
-                    }}
-                  />
-                )}
+                const bonusUsedForPhase = bonusUsedByPhase[match.phase];
+                const bonusUnavailable =
+                  !!bonusUsedForPhase && bonusUsedForPhase !== match.id;
 
-                {homeTeam?.name || match.home_team}
-                {' - '}
+                return (
+                  <div className="card" key={match.id}>
+                    <p className="small">
+                      {phaseLabels[match.phase] || match.phase} ·{' '}
+                      {new Date(match.kickoff_at).toLocaleString('fr-BE')}
+                    </p>
 
-                {awayTeam?.logo_url && (
-                  <img
-                    src={awayTeam.logo_url}
-                    alt={awayTeam.name}
-                    style={{
-                      width: 24,
-                      height: 24,
-                      objectFit: 'contain',
-                      marginRight: 8,
-                    }}
-                  />
-                )}
+                    <h2>
+                      {homeTeam?.name || match.home_team}
+                      {' - '}
+                      {awayTeam?.name || match.away_team}
+                    </h2>
 
-                {awayTeam?.name || match.away_team}
-              </h2>
+                    <div className="grid">
+                      <div>
+                        <label>{homeTeam?.name || match.home_team}</label>
+                        <input
+                          disabled={locked}
+                          type="number"
+                          min="0"
+                          value={p?.predicted_home_score ?? 0}
+                          onChange={(e) =>
+                            update(match, 'predicted_home_score', e.target.value)
+                          }
+                        />
+                      </div>
 
-              <div className="grid">
-                <div>
-                  <label>{homeTeam?.name || match.home_team}</label>
-                  <input
-                    disabled={locked}
-                    type="number"
-                    min="0"
-                    value={p?.predicted_home_score ?? 0}
-                    onChange={(e) =>
-                      update(match, 'predicted_home_score', e.target.value)
-                    }
-                  />
-                </div>
+                      <div>
+                        <label>{awayTeam?.name || match.away_team}</label>
+                        <input
+                          disabled={locked}
+                          type="number"
+                          min="0"
+                          value={p?.predicted_away_score ?? 0}
+                          onChange={(e) =>
+                            update(match, 'predicted_away_score', e.target.value)
+                          }
+                        />
+                      </div>
+                    </div>
 
-                <div>
-                  <label>{awayTeam?.name || match.away_team}</label>
-                  <input
-                    disabled={locked}
-                    type="number"
-                    min="0"
-                    value={p?.predicted_away_score ?? 0}
-                    onChange={(e) =>
-                      update(match, 'predicted_away_score', e.target.value)
-                    }
-                  />
-                </div>
-              </div>
+                    <label>Première équipe qui marque</label>
+                    <select
+                      disabled={locked}
+                      value={p?.predicted_first_scoring_team_id ?? ''}
+                      onChange={(e) =>
+                        update(match, 'predicted_first_scoring_team_id', e.target.value)
+                      }
+                    >
+                      <option value="">Aucune sélection</option>
 
-              <label>Première équipe qui marque</label>
-              <select
-                disabled={locked}
-                value={p?.predicted_first_scoring_team_id ?? ''}
-                onChange={(e) =>
-                  update(match, 'predicted_first_scoring_team_id', e.target.value)
-                }
-              >
-                <option value="">Aucune sélection</option>
+                      {match.home_team_id && (
+                        <option value={match.home_team_id}>
+                          {homeTeam?.name || match.home_team}
+                        </option>
+                      )}
 
-                {match.home_team_id && (
-                  <option value={match.home_team_id}>
-                    {homeTeam?.name || match.home_team}
-                  </option>
-                )}
+                      {match.away_team_id && (
+                        <option value={match.away_team_id}>
+                          {awayTeam?.name || match.away_team}
+                        </option>
+                      )}
+                    </select>
 
-                {match.away_team_id && (
-                  <option value={match.away_team_id}>
-                    {awayTeam?.name || match.away_team}
-                  </option>
-                )}
-              </select>
+                    <label>Premier buteur</label>
 
-              <label>Premier buteur</label>
-              <select
-                disabled={locked}
-                value={p?.predicted_first_scorer_id ?? ''}
-                onChange={(e) =>
-                  update(match, 'predicted_first_scorer_id', e.target.value)
-                }
-              >
-                <option value="">Aucun buteur</option>
+                    {selectedPlayer && (
+                      <p className="small">
+                        Sélection actuelle : {selectedPlayer.name} —{' '}
+                        {selectedPlayer.team_abr ||
+                          teams[selectedPlayer.team_id]?.code ||
+                          '???'}
+                      </p>
+                    )}
 
-                {availablePlayers.map((player) => (
-                  <option key={player.id} value={player.id}>
-                    {player.name} — {player.team_abr || teams[player.team_id]?.code || '???'}
-                  </option>
-                ))}
-              </select>
+                    <input
+                      disabled={locked}
+                      type="text"
+                      placeholder="Rechercher un joueur..."
+                      value={playerSearchByMatch[match.id] || ''}
+                      onChange={(e) =>
+                        setPlayerSearchByMatch((current) => ({
+                          ...current,
+                          [match.id]: e.target.value,
+                        }))
+                      }
+                    />
 
-              {availablePlayers.length === 0 && (
-                <p className="small error">
-                  Aucun joueur trouvé pour ce match.
-                </p>
-              )}
+                    <select
+                      disabled={locked}
+                      size={8}
+                      value={p?.predicted_first_scorer_id ?? ''}
+                      onChange={(e) =>
+                        update(match, 'predicted_first_scorer_id', e.target.value)
+                      }
+                    >
+                      <option value="">Aucun buteur</option>
 
-              {bonusAllowedPhases.includes(match.phase) && (
-                <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <input
-                    type="checkbox"
-                    disabled={locked || bonusUnavailable}
-                    checked={p?.double_bonus ?? false}
-                    onChange={(e) =>
-                      update(match, 'double_bonus', e.target.checked)
-                    }
-                  />
+                      {filteredAvailablePlayers.map((player) => (
+                        <option key={player.id} value={player.id}>
+                          {player.name} —{' '}
+                          {player.team_abr || teams[player.team_id]?.code || '???'}
+                        </option>
+                      ))}
+                    </select>
 
-                  Bonus x2
+                    <p className="small">
+                      {filteredAvailablePlayers.length} joueur(s) affiché(s) sur{' '}
+                      {availablePlayers.length}
+                    </p>
 
-                  {bonusUnavailable && (
-                    <span className="small">
-                      déjà utilisé pour {phaseLabels[match.phase] || match.phase}
-                    </span>
-                  )}
-                </label>
-              )}
+                    {availablePlayers.length === 0 && (
+                      <p className="small error">
+                        Aucun joueur trouvé pour ce match.
+                      </p>
+                    )}
 
-              <p className="small">Points actuels : {p?.points ?? 0}</p>
+                    {bonusAllowedPhases.includes(match.phase) && (
+                      <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <input
+                          type="checkbox"
+                          disabled={locked || bonusUnavailable}
+                          checked={p?.double_bonus ?? false}
+                          onChange={(e) =>
+                            update(match, 'double_bonus', e.target.checked)
+                          }
+                        />
 
-              <button disabled={locked} onClick={() => save(match)}>
-                {locked ? 'Verrouillé' : 'Sauvegarder'}
-              </button>
+                        Bonus x2
+
+                        {bonusUnavailable && (
+                          <span className="small">
+                            déjà utilisé pour {phaseLabels[match.phase] || match.phase}
+                          </span>
+                        )}
+                      </label>
+                    )}
+
+                    <p className="small">Points actuels : {p?.points ?? 0}</p>
+
+                    <button disabled={locked} onClick={() => save(match)}>
+                      {locked ? 'Verrouillé' : 'Sauvegarder'}
+                    </button>
+                  </div>
+                );
+              })}
             </div>
-          );
-        })}
-      </div>
+          </section>
+        );
+      })}
     </main>
   );
 }
