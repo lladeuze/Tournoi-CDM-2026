@@ -789,23 +789,20 @@ export default function PredictionsPage() {
       )}
 
       {viewMode === 'history' && (
-        <>
-          {historyMatches.length === 0 ? (
-            <div className="card">
-              <p>Aucun match terminé pour le moment.</p>
-            </div>
-          ) : (
-            <div style={{ display: 'grid', gap: 16 }}>
-  {matches.map((match) => (
-    <div key={match.id} className="card">
-      {/* ici tu remets tout le contenu existant d’un match */}
-    </div>
-  ))}
-</div>
-</div>
-          )}
-        </>
-      )}
+  <>
+    {historyMatches.length === 0 ? (
+      <div className="card">
+        <p>Aucun match terminé pour le moment.</p>
+      </div>
+    ) : (
+      <div style={{ display: 'grid', gap: 16 }}>
+        {historyMatches.map((match) =>
+          renderMatchCard(match, 'history')
+        )}
+      </div>
+    )}
+  </>
+)}
     </main>
   );
 }
