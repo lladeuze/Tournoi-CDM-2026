@@ -588,43 +588,62 @@ function getFlagUrl(team: Team | null, fallbackName: string) {
         </p>
 
         <div className="match-header">
-          <div className="team-side">
-            <div className="team-flag">   {getFlagUrl(homeTeam, match.home_team) ? (     <img       src={getFlagUrl(homeTeam, match.home_team)!}       alt={`Drapeau ${homeTeam?.name || match.home_team}`}     />   ) : (     '🏳️'   )} </div>
-            <div
-  style={{
-    fontWeight: 900,
-    fontSize: '1.8rem',
-    letterSpacing: '1px',
-  }}
->
-  {homeTeam?.code || '---'}
+  <div className="team-side">
+    <div className="team-flag">
+      {getFlagUrl(homeTeam, match.home_team) ? (
+        <img
+          src={getFlagUrl(homeTeam, match.home_team)!}
+          alt={`Drapeau ${homeTeam?.name || match.home_team}`}
+        />
+      ) : (
+        '🏳️'
+      )}
+    </div>
+
+    <div
+      style={{
+        fontWeight: 900,
+        fontSize: '1.8rem',
+        letterSpacing: '1px',
+      }}
+    >
+      {homeTeam?.code || getTeamCodeByName(match.home_team) || '---'}
+    </div>
+
+    <div className="team-code">{homeTeam?.name || match.home_team}</div>
+  </div>
+
+  <div style={{ fontWeight: 900, fontSize: 24, color: '#5eead4' }}>
+    VS
+  </div>
+
+  <div className="team-side">
+    <div className="team-flag">
+      {getFlagUrl(awayTeam, match.away_team) ? (
+        <img
+          src={getFlagUrl(awayTeam, match.away_team)!}
+          alt={`Drapeau ${awayTeam?.name || match.away_team}`}
+        />
+      ) : (
+        '🏳️'
+      )}
+    </div>
+
+    <div
+      style={{
+        fontWeight: 900,
+        fontSize: '1.8rem',
+        letterSpacing: '1px',
+      }}
+    >
+      {awayTeam?.code || getTeamCodeByName(match.away_team) || '---'}
+    </div>
+
+    <div className="team-code">{awayTeam?.name || match.away_team}</div>
+  </div>
 </div>
 
-<div className="team-code">
-  {homeTeam?.name || match.home_team}
-</div>
-
-          <div style={{ fontWeight: 900, fontSize: 24, color: '#5eead4' }}>
-            VS
-          </div>
-
-          <div className="team-side">
-            <div className="team-flag">   {getFlagUrl(awayTeam, match.away_team) ? (     <img       src={getFlagUrl(awayTeam, match.away_team)!}       alt={`Drapeau ${awayTeam?.name || match.away_team}`}     />   ) : (     '🏳️'   )} </div>
-            <div
-  style={{
-    fontWeight: 900,
-    fontSize: '1.8rem',
-    letterSpacing: '1px',
-  }}
->
-  {awayTeam?.code || '---'}
-</div>
-
-<div className="team-code">
-  {awayTeam?.name || match.away_team}
-</div>
-        </div>
-
+        
         <div
           className="score-box"
           style={{ justifyContent: 'center', marginBottom: 14 }}
