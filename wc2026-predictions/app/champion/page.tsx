@@ -252,6 +252,12 @@ export default function ChampionPage() {
   return now >= openingDate && now <= closingDate;
 }
 
+  function getCurrentSelectedTeamId() {
+  return selectionMode === 'initial'
+    ? initialChampionTeamId
+    : secondChampionTeamId;
+}
+
   function selectTeam(team: Team) {
     if (selectionMode === 'initial') {
       setInitialChampionTeamId(team.id);
