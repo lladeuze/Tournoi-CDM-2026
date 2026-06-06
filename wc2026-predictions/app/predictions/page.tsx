@@ -185,24 +185,15 @@ export default function PredictionsPage() {
       { data: matchesData, error: matchesError },
       { data: predictionsData, error: predictionsError },
       { data: teamsData, error: teamsError },
-      { data: championData, error: championError },
     ] = await Promise.all([
       supabase.from('matches').select('*').order('kickoff_at', { ascending: true }),
       supabase.from('predictions').select('*').eq('user_id', user.id),
       supabase.from('teams').select('*').order('name', { ascending: true }),
-      supabase.from('champion_predictions').select('*').eq('user_id', user.id).maybeSingle(),
     ]);
 
     if (matchesError) return setMessage(`Erreur matchs: ${matchesError.message}`);
     if (predictionsError) return setMessage(`Erreur pronostics: ${predictionsError.message}`);
     if (teamsError) return setMessage(`Erreur équipes: ${teamsError.message}`);
-    if (championError) {return setMessage(`Erreur champion : ${championError.message}`);
-}
-
-if (championData) {
-  setChampionPrediction(championData);
-  setInitialChampionTeamId(championData.initial_champion_team_id || '');
-  setSecondChampionTeamId(championData.second_champion_team_id || '');
 }
 
     const loadedMatches = matchesData || [];
