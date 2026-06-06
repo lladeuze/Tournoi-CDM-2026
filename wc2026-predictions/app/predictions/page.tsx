@@ -1060,78 +1060,32 @@ async function saveChampionPrediction(type: 'initial' | 'second') {
             </div>
           </div>
 
-          <div className="card">
+         <div className="card">
   <h2>🏆 Mon champion du monde</h2>
 
   <p className="small">
-    Choisis ton champion avant la fin de la J1 pour tenter de gagner 20 points.
-    Après les groupes, tu pourras faire un deuxième choix pour 10 points.
+    Pronostique le vainqueur de la Coupe du Monde 2026.
   </p>
 
-  <div style={{ display: 'grid', gap: 16 }}>
-    <div>
-      <label>Champion initial — 20 pts</label>
-
-      <select
-        disabled={!canEditInitialChampion()}
-        value={initialChampionTeamId}
-        onChange={(e) => setInitialChampionTeamId(e.target.value)}
-      >
-        <option value="">Sélectionner une équipe</option>
-
-        {Object.values(teams).map((team) => (
-          <option key={team.id} value={team.id}>
-            {team.code} — {team.name}
-          </option>
-        ))}
-      </select>
-
-      <button
-        type="button"
-        disabled={!canEditInitialChampion()}
-        onClick={() => saveChampionPrediction('initial')}
-        style={{ marginTop: 10 }}
-      >
-        {canEditInitialChampion()
-          ? 'Sauvegarder mon champion initial'
-          : 'Champion initial verrouillé'}
-      </button>
-    </div>
-
-    <hr style={{ opacity: 0.15, width: '100%' }} />
-
-    <div>
-      <label>Deuxième champion — 10 pts</label>
-
-      <select
-        disabled={!canEditSecondChampion()}
-        value={secondChampionTeamId}
-        onChange={(e) => setSecondChampionTeamId(e.target.value)}
-      >
-        <option value="">Sélectionner une équipe</option>
-
-        {Object.values(teams).map((team) => (
-          <option key={team.id} value={team.id}>
-            {team.code} — {team.name}
-          </option>
-        ))}
-      </select>
-
-      <button
-        type="button"
-        disabled={!canEditSecondChampion()}
-        onClick={() => saveChampionPrediction('second')}
-        style={{ marginTop: 10 }}
-      >
-        {canEditSecondChampion()
-          ? 'Sauvegarder mon deuxième champion'
-          : 'Deuxième champion verrouillé'}
-      </button>
-    </div>
+  <div style={{ marginBottom: 16 }}>
+    {championPrediction?.initial_champion_team_id ? (
+      <p>✅ Champion initial enregistré</p>
+    ) : (
+      <p>⚠️ Aucun champion sélectionné</p>
+    )}
   </div>
+
+  <a href="/champion">
+    <button
+      type="button"
+      style={{
+        width: '100%',
+      }}
+    >
+      🏆 Gérer mon pronostic champion
+    </button>
+  </a>
 </div>
-
-
 
 
 
