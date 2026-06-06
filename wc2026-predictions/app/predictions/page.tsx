@@ -590,11 +590,19 @@ function getFlagUrl(team: Team | null, fallbackName: string) {
         <div className="match-header">
           <div className="team-side">
             <div className="team-flag">   {getFlagUrl(homeTeam, match.home_team) ? (     <img       src={getFlagUrl(homeTeam, match.home_team)!}       alt={`Drapeau ${homeTeam?.name || match.home_team}`}     />   ) : (     '🏳️'   )} </div>
-            <div style={{ fontWeight: 900 }}>
-              {homeTeam?.code || match.home_team}
-            </div>
-            <div className="team-code">{homeTeam?.name || match.home_team}</div>
-          </div>
+            <div
+  style={{
+    fontWeight: 900,
+    fontSize: '1.8rem',
+    letterSpacing: '1px',
+  }}
+>
+  {homeTeam?.code || '---'}
+</div>
+
+<div className="team-code">
+  {homeTeam?.name || match.home_team}
+</div>
 
           <div style={{ fontWeight: 900, fontSize: 24, color: '#5eead4' }}>
             VS
@@ -602,11 +610,19 @@ function getFlagUrl(team: Team | null, fallbackName: string) {
 
           <div className="team-side">
             <div className="team-flag">   {getFlagUrl(awayTeam, match.away_team) ? (     <img       src={getFlagUrl(awayTeam, match.away_team)!}       alt={`Drapeau ${awayTeam?.name || match.away_team}`}     />   ) : (     '🏳️'   )} </div>
-            <div style={{ fontWeight: 900 }}>
-              {awayTeam?.code || match.away_team}
-            </div>
-            <div className="team-code">{awayTeam?.name || match.away_team}</div>
-          </div>
+            <div
+  style={{
+    fontWeight: 900,
+    fontSize: '1.8rem',
+    letterSpacing: '1px',
+  }}
+>
+  {awayTeam?.code || '---'}
+</div>
+
+<div className="team-code">
+  {awayTeam?.name || match.away_team}
+</div>
         </div>
 
         <div
