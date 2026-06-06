@@ -13,6 +13,16 @@ type LeaderboardRow = {
   first_scorers_count: number;
 };
 
+type MatchInfo = {
+  home_team: string;
+  away_team: string;
+  home_score: number | null;
+  away_score: number | null;
+  kickoff_at: string;
+  status: string;
+  phase: string;
+};
+
 type PredictionRow = {
   id: string;
   match_id: string;
@@ -24,15 +34,7 @@ type PredictionRow = {
   exact_score: boolean;
   correct_result: boolean;
   first_scorer_correct: boolean;
-  matches: {
-    home_team: string;
-    away_team: string;
-    home_score: number | null;
-    away_score: number | null;
-    kickoff_at: string;
-    status: string;
-    phase: string;
-  } | null;
+  matches: MatchInfo | null;
 };
 
 const phaseLabels: Record<string, string> = {
@@ -80,40 +82,44 @@ export default function ProfilePage() {
 
     setUserId(user.id);
 
-    const [{ data: leaderboardData, error: leaderboardError }, { data: predictionsData, error: predictionsError }] =
-      await Promise.all([
-        supabase
-          .from('leaderboard')
-          .select('*')
-          .order('total_points', { ascending: false })
-          .order('exact_scores_count', { ascending: false })
-          .order('correct_results_count', { ascending: false }),
+    const [
+      { data: leaderboardData, error: leaderboardError },
+      { data: predictionsData, error: predictionsError },
+    ] = await Promise.all([
+      supabase
+        .from('leaderboard')
+        .select('*')
+        .order('total_points', { ascending: false })
+        .order('exact_scores_count', { ascending: false })
+        .order('correct_results_count', { ascending: false }),
 
-        supabase
-          .from('predictions')
-          .select(`
-            id,
-            match_id,
-            predicted_home_score,
-            predicted_away_score,
-            predicted_first_scorer,
-            double_bonus,
-            points,
-            exact_score,
-            correct_result,
-            first_scorer_correct,
-            matches (
-              home_team,
-              away_team,
-              home_score,
-              away_score,
-              kickoff_at,
-              status,
-              phase
-            )
-          `)
-          .eq('user_id', user.id),
-      ]);
+      supabase
+        .from('predictions')
+        .select(
+          `
+          id,
+          match_id,
+          predicted_home_score,
+          predicted_away_score,
+          predicted_first_scorer,
+          double_bonus,
+          points,
+          exact_score,
+          correct_result,
+          first_scorer_correct,
+          matches (
+            home_team,
+            away_team,
+            home_score,
+            away_score,
+            kickoff_at,
+            status,
+            phase
+          )
+        `
+        )
+        .eq('user_id', user.id),
+    ]);
 
     if (leaderboardError) {
       setMessage(`Erreur classement : ${leaderboardError.message}`);
@@ -127,13 +133,31 @@ export default function ProfilePage() {
       return;
     }
 
-    const leaderboard = leaderboardData || [];
-    const index = leaderboard.findIndex((row: LeaderboardRow) => row.user_id === user.id);
+    const leaderboard = (leaderboardData || []) as LeaderboardRow[];
+    const index = leaderboard.findIndex((row) => row.user_id === user.id);
 
     setRank(index >= 0 ? index + 1 : null);
     setMe(index >= 0 ? leaderboard[index] : null);
 
-    setPredictions((predictionsData || []) as PredictionRow[]);
+    const normalizedPredictions: PredictionRow[] = (predictionsData || []).map(
+      (prediction: any) => ({
+        id: prediction.id,
+        match_id: prediction.match_id,
+        predicted_home_score: prediction.predicted_home_score,
+        predicted_away_score: prediction.predicted_away_score,
+        predicted_first_scorer: prediction.predicted_first_scorer,
+        double_bonus: prediction.double_bonus,
+        points: prediction.points,
+        exact_score: prediction.exact_score,
+        correct_result: prediction.correct_result,
+        first_scorer_correct: prediction.first_scorer_correct,
+        matches: Array.isArray(prediction.matches)
+          ? prediction.matches[0] || null
+          : prediction.matches || null,
+      })
+    );
+
+    setPredictions(normalizedPredictions);
     setLoading(false);
   }
 
@@ -206,11 +230,14 @@ export default function ProfilePage() {
                     }}
                   >
                     <strong>
-                      {prediction.matches?.home_team} - {prediction.matches?.away_team}
+                      {prediction.matches?.home_team || 'Équipe domicile'} -{' '}
+                      {prediction.matches?.away_team || 'Équipe extérieur'}
                     </strong>
+
                     <p className="small" style={{ marginBottom: 0 }}>
                       {phaseLabels[prediction.matches?.phase || ''] ||
-                        prediction.matches?.phase}{' '}
+                        prediction.matches?.phase ||
+                        'Phase inconnue'}{' '}
                       · {prediction.points} pts
                     </p>
                   </div>
@@ -243,7 +270,8 @@ export default function ProfilePage() {
                     }}
                   >
                     <strong>
-                      {prediction.matches?.home_team} - {prediction.matches?.away_team}
+                      {prediction.matches?.home_team || 'Équipe domicile'} -{' '}
+                      {prediction.matches?.away_team || 'Équipe extérieur'}
                     </strong>
 
                     <p className="small">
@@ -287,19 +315,24 @@ export default function ProfilePage() {
                     {finishedPredictions.map((prediction) => (
                       <tr key={prediction.id}>
                         <td>
-                          {prediction.matches?.home_team} -{' '}
-                          {prediction.matches?.away_team}
+                          {prediction.matches?.home_team || 'Équipe domicile'} -{' '}
+                          {prediction.matches?.away_team || 'Équipe extérieur'}
                         </td>
+
                         <td>
                           {prediction.predicted_home_score} -{' '}
                           {prediction.predicted_away_score}
                         </td>
+
                         <td>
                           {prediction.matches?.home_score ?? '-'} -{' '}
                           {prediction.matches?.away_score ?? '-'}
                         </td>
+
                         <td>{prediction.first_scorer_correct ? '✅' : '—'}</td>
+
                         <td>{prediction.double_bonus ? '🔥' : '—'}</td>
+
                         <td style={{ fontWeight: 900 }}>{prediction.points}</td>
                       </tr>
                     ))}
