@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
@@ -107,7 +106,6 @@ export default function ChampionPage() {
 
   const [initialChampionTeamId, setInitialChampionTeamId] = useState('');
   const [secondChampionTeamId, setSecondChampionTeamId] = useState('');
-
   const [selectionMode, setSelectionMode] = useState<'initial' | 'second'>(
     'initial'
   );
@@ -242,19 +240,11 @@ export default function ChampionPage() {
   }
 
   function canEditInitialChampion() {
-  return true;
-}
+    return true;
+  }
 
   function canEditSecondChampion() {
-    const lastGroupDate = getLastGroupMatchDate();
-    const firstRoundOf32Date = getFirstRoundOf32MatchDate();
-
-    if (!lastGroupDate || !firstRoundOf32Date) return false;
-
-    return (
-      Date.now() > lastGroupDate.getTime() &&
-      Date.now() < firstRoundOf32Date.getTime()
-    );
+    return true;
   }
 
   function getCurrentSelectedTeamId() {
@@ -263,11 +253,13 @@ export default function ChampionPage() {
       : secondChampionTeamId;
   }
 
-  function selectTeam(teamId: string) {
+  function selectTeam(team: Team) {
     if (selectionMode === 'initial') {
-      setInitialChampionTeamId(teamId);
+      setInitialChampionTeamId(team.id);
+      setMessage(`${team.name} sélectionné comme champion initial.`);
     } else {
-      setSecondChampionTeamId(teamId);
+      setSecondChampionTeamId(team.id);
+      setMessage(`${team.name} sélectionné comme champion après groupes.`);
     }
   }
 
@@ -275,18 +267,6 @@ export default function ChampionPage() {
     if (!userId) return;
 
     const isInitial = type === 'initial';
-
-    if (isInitial && !canEditInitialChampion()) {
-      setMessage('Le champion initial est verrouillé.');
-      return;
-    }
-
-    if (!isInitial && !canEditSecondChampion()) {
-      setMessage(
-        'Le deuxième champion est disponible uniquement après les groupes et avant les 16es.'
-      );
-      return;
-    }
 
     const selectedTeamId = isInitial
       ? initialChampionTeamId
@@ -330,7 +310,7 @@ export default function ChampionPage() {
     setMessage(
       isInitial
         ? 'Champion initial sauvegardé.'
-        : 'Deuxième champion sauvegardé.'
+        : 'Champion après groupes sauvegardé.'
     );
 
     await load();
@@ -381,8 +361,8 @@ export default function ChampionPage() {
               <hr style={{ opacity: 0.15, width: '100%' }} />
 
               <p>
-                <strong>🔄 Deuxième pronostic :</strong> disponible après la fin
-                des groupes et avant le début des 16es de finale.
+                <strong>🔄 Champion après groupes :</strong> disponible après la
+                fin des groupes et avant le début des 16es de finale.
               </p>
 
               <p className="small">
@@ -405,105 +385,86 @@ export default function ChampionPage() {
 
           <div className="grid">
             <div className="card">
-              <div className="card">
-  <h2>🎯 Champion initial (+20 pts)</h2>
+              <h2>🎯 Champion initial (+20 pts)</h2>
 
-  {initialChampionTeam ? (
-    <p>
-      ✅ {initialChampionTeam.code} — {initialChampionTeam.name}
-    </p>
-  ) : (
-    <p className="small">
-      Aucun champion initial sélectionné.
-    </p>
-  )}
+              {initialChampionTeam ? (
+                <p>
+                  ✅ {initialChampionTeam.code} — {initialChampionTeam.name}
+                </p>
+              ) : (
+                <p className="small">Aucun champion initial sélectionné.</p>
+              )}
 
-  <button
-    type="button"
-    onClick={() => saveChampionPrediction('initial')}
-    disabled={!initialChampionTeamId}
-    style={{ marginTop: 12 }}
-  >
-    Sauvegarder mon champion initial
-  </button>
-</div>
+              <button
+                type="button"
+                onClick={() => saveChampionPrediction('initial')}
+                disabled={!initialChampionTeamId}
+                style={{ marginTop: 12 }}
+              >
+                Sauvegarder mon champion initial
+              </button>
             </div>
 
             <div className="card">
-              <div className="card">
-  <h2>🔄 Champion après groupes (+10 pts)</h2>
+              <h2>🔄 Champion après groupes (+10 pts)</h2>
 
-  {secondChampionTeam ? (
-    <p>
-      ✅ {secondChampionTeam.code} — {secondChampionTeam.name}
-    </p>
-  ) : (
-    <p className="small">
-      Aucun deuxième champion sélectionné.
-    </p>
-  )}
+              {secondChampionTeam ? (
+                <p>
+                  ✅ {secondChampionTeam.code} — {secondChampionTeam.name}
+                </p>
+              ) : (
+                <p className="small">Aucun deuxième champion sélectionné.</p>
+              )}
 
-  <button
-    type="button"
-    onClick={() => saveChampionPrediction('second')}
-    disabled={!secondChampionTeamId}
-    style={{ marginTop: 12 }}
-  >
-    Sauvegarder mon deuxième champion
-  </button>
-</div>
-        
+              <button
+                type="button"
+                onClick={() => saveChampionPrediction('second')}
+                disabled={!secondChampionTeamId}
+                style={{ marginTop: 12 }}
+              >
+                Sauvegarder mon champion après groupes
+              </button>
+            </div>
           </div>
 
+          <div className="card">
+            <h2>🎯 Je sélectionne actuellement</h2>
 
+            <div
+              style={{
+                display: 'flex',
+                gap: 12,
+                flexWrap: 'wrap',
+                marginTop: 12,
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setSelectionMode('initial')}
+                className={selectionMode === 'initial' ? '' : 'secondary'}
+              >
+                Champion initial (+20 pts)
+              </button>
 
-<div className="card">
-  <h2>🎯 Je sélectionne actuellement</h2>
+              <button
+                type="button"
+                onClick={() => setSelectionMode('second')}
+                className={selectionMode === 'second' ? '' : 'secondary'}
+              >
+                Champion après groupes (+10 pts)
+              </button>
+            </div>
 
-  <div
-    style={{
-      display: 'flex',
-      gap: 12,
-      flexWrap: 'wrap',
-      marginTop: 12,
-    }}
-  >
-    <button
-      type="button"
-      onClick={() => setSelectionMode('initial')}
-      className={
-        selectionMode === 'initial' ? '' : 'secondary'
-      }
-    >
-      Champion initial (+20 pts)
-    </button>
+            <p className="small" style={{ marginTop: 12 }}>
+              Les équipes choisies ci-dessous seront appliquées à :
+              <strong>
+                {selectionMode === 'initial'
+                  ? ' Champion initial'
+                  : ' Champion après groupes'}
+              </strong>
+            </p>
+          </div>
 
-    <button
-      type="button"
-      onClick={() => setSelectionMode('second')}
-      className={
-        selectionMode === 'second' ? '' : 'secondary'
-      }
-    >
-      Champion après groupes (+10 pts)
-    </button>
-  </div>
-
-  <p
-    className="small"
-    style={{ marginTop: 12 }}
-  >
-    Les équipes choisies ci-dessous seront appliquées à :
-    <strong>
-      {selectionMode === 'initial'
-        ? ' Champion initial'
-        : ' Champion après groupes'}
-    </strong>
-  </p>
-</div>
-
-
-            
           <div className="card">
             <h2>
               🌍 Sélection des équipes —{' '}
@@ -523,17 +484,11 @@ export default function ChampionPage() {
                 const flagUrl = getFlagUrl(team);
                 const selected = getCurrentSelectedTeamId() === team.id;
 
-                const disabled =
-                  selectionMode === 'initial'
-                    ? !canEditInitialChampion()
-                    : !canEditSecondChampion();
-
                 return (
                   <button
                     key={team.id}
                     type="button"
-                    disabled={disabled}
-                    onClick={() => selectTeam(team.id)}
+                    onClick={() => selectTeam(team)}
                     style={{
                       padding: 14,
                       borderRadius: 14,
@@ -544,7 +499,7 @@ export default function ChampionPage() {
                         ? 'rgba(94,234,212,0.14)'
                         : 'rgba(255,255,255,0.04)',
                       color: 'white',
-                      cursor: disabled ? 'not-allowed' : 'pointer',
+                      cursor: 'pointer',
                       display: 'grid',
                       gap: 8,
                       justifyItems: 'center',
