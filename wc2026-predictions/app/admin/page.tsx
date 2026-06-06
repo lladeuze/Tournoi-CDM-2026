@@ -284,6 +284,25 @@ export default function AdminPage() {
     }));
   }
 
+async function updateWinnerTeam() {
+  const { error } = await supabase
+    .from('tournament_settings')
+    .update({
+      winner_team_id: winnerTeamId || null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', 1);
+
+  if (error) {
+    setMessage(`Erreur champion officiel : ${error.message}`);
+    return;
+  }
+
+  setMessage('Champion officiel mis à jour.');
+  await load();
+}
+
+  
   async function saveMatch(match: Match) {
     const { error } = await supabase
       .from('matches')
