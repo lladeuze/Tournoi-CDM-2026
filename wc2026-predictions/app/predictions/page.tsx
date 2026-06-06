@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 
 type Team = {
@@ -38,24 +39,6 @@ type Prediction = {
   predicted_first_scoring_team_id: string | null;
   double_bonus: boolean;
   points: number;
-};
-
-type Champion = {
-  id: string;
-  user_id: string;
-  initial_champion_team_id: string | null;
-  second_champion_team_id: string | null;
-  initial_locked_at: string | null;
-  second_locked_at: string | null;
-};
-
-type ChampionPrediction = {
-  id: string;
-  user_id: string;
-  initial_champion_team_id: string | null;
-  second_champion_team_id: string | null;
-  initial_locked_at: string | null;
-  second_locked_at: string | null;
 };
 
 const phaseLabels: Record<string, string> = {
@@ -164,7 +147,6 @@ export default function PredictionsPage() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [playerSearchByMatch, setPlayerSearchByMatch] = useState<Record<string, string>>({});
   const [openScorerForMatch, setOpenScorerForMatch] = useState<string | null>(null);
-  const [championPrediction, setChampionPrediction] =useState<ChampionPrediction | null>(null);
 
   useEffect(() => {
     load();
@@ -192,12 +174,11 @@ export default function PredictionsPage() {
     ]);
 
     if (matchesError) return setMessage(`Erreur matchs: ${matchesError.message}`);
-    if (predictionsError) return setMessage(`Erreur pronostics: ${predictionsError.message}`);
-    if (teamsError) return setMessage(`Erreur équipes: ${teamsError.message}`);
-}
+if (predictionsError) return setMessage(`Erreur pronostics: ${predictionsError.message}`);
+if (teamsError) return setMessage(`Erreur équipes: ${teamsError.message}`);
 
-    const loadedMatches = matchesData || [];
-    setMatches(loadedMatches);
+const loadedMatches = matchesData || [];
+setMatches(loadedMatches);
 
     const teamsById: Record<string, Team> = {};
     (teamsData || []).forEach((team: Team) => {
@@ -419,52 +400,6 @@ function getFlagUrl(team: Team | null, fallbackName: string) {
       return [...current, ...newPlayers];
     });
   }
-
-  function getLastGroupJ1MatchDate() {
-  const groupJ1Matches = matches.filter((match) => match.phase === 'group_j1');
-
-  if (groupJ1Matches.length === 0) return null;
-
-  return new Date(
-    Math.max(
-      ...groupJ1Matches.map((match) =>
-        new Date(match.kickoff_at).getTime()
-      )
-    )
-  );
-}
-
-function getLastGroupMatchDate() {
-  const groupMatches = matches.filter((match) =>
-    ['group_j1', 'group_j2', 'group_j3'].includes(match.phase)
-  );
-
-  if (groupMatches.length === 0) return null;
-
-  return new Date(
-    Math.max(
-      ...groupMatches.map((match) =>
-        new Date(match.kickoff_at).getTime()
-      )
-    )
-  );
-}
-
-function getFirstRoundOf32MatchDate() {
-  const roundOf32Matches = matches.filter(
-    (match) => match.phase === 'round_of_32'
-  );
-
-  if (roundOf32Matches.length === 0) return null;
-
-  return new Date(
-    Math.min(
-      ...roundOf32Matches.map((match) =>
-        new Date(match.kickoff_at).getTime()
-      )
-    )
-  );
-}
 
   
   function update(match: Match, field: keyof Prediction, value: string | boolean) {
