@@ -289,7 +289,7 @@ export default function ProfilePage() {
           <div className="card">
             <h2>⚙️ Mon compte</h2>
 
-            <div style={{ display: 'grid', gap: 12 }}>
+            <div style={{ display: 'grid', gap: 14 }}>
               <div>
                 <p className="small">Email</p>
                 <strong>{profile?.email || '-'}</strong>
@@ -325,7 +325,7 @@ export default function ProfilePage() {
 
             <h3>Modifier mon mot de passe</h3>
 
-            <div style={{ display: 'grid', gap: 12 }}>
+            <div style={{ display: 'grid', gap: 14 }}>
               <input
                 type="password"
                 value={newPassword}
@@ -337,7 +337,135 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* Le reste de ta page reste identique */}
+          <div className="card">
+            <h2>🔥 Mes bonus utilisés</h2>
+
+            {bonusUsed.length === 0 ? (
+              <p className="small">Aucun bonus utilisé pour le moment.</p>
+            ) : (
+              <div style={{ display: 'grid', gap: 10 }}>
+                {bonusUsed.map((prediction) => (
+                  <div
+                    key={prediction.id}
+                    style={{
+                      padding: 12,
+                      borderRadius: 12,
+                      background: 'rgba(255,255,255,0.04)',
+                      border: '1px solid rgba(255,255,255,0.10)',
+                    }}
+                  >
+                    <strong>
+                      {prediction.matches?.home_team || 'Équipe domicile'} -{' '}
+                      {prediction.matches?.away_team || 'Équipe extérieur'}
+                    </strong>
+
+                    <p className="small" style={{ marginBottom: 0 }}>
+                      {phaseLabels[prediction.matches?.phase || ''] ||
+                        prediction.matches?.phase ||
+                        'Phase inconnue'}{' '}
+                      · {prediction.points} pts
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="card">
+            <h2>🏆 Mes meilleurs pronostics</h2>
+
+            {bestPredictions.length === 0 ? (
+              <p className="small">Aucun match terminé pour le moment.</p>
+            ) : (
+              <div style={{ display: 'grid', gap: 10 }}>
+                {bestPredictions.map((prediction) => (
+                  <div
+                    key={prediction.id}
+                    style={{
+                      padding: 12,
+                      borderRadius: 12,
+                      background:
+                        prediction.points >= 11
+                          ? 'rgba(34,197,94,0.14)'
+                          : 'rgba(255,255,255,0.04)',
+                      border:
+                        prediction.points >= 11
+                          ? '1px solid rgba(34,197,94,0.7)'
+                          : '1px solid rgba(255,255,255,0.10)',
+                    }}
+                  >
+                    <strong>
+                      {prediction.matches?.home_team || 'Équipe domicile'} -{' '}
+                      {prediction.matches?.away_team || 'Équipe extérieur'}
+                    </strong>
+
+                    <p className="small">
+                      Prono : {prediction.predicted_home_score} -{' '}
+                      {prediction.predicted_away_score}
+                      {' · '}
+                      Résultat : {prediction.matches?.home_score ?? '-'} -{' '}
+                      {prediction.matches?.away_score ?? '-'}
+                    </p>
+
+                    <p style={{ margin: 0, fontWeight: 900 }}>
+                      {prediction.points >= 11 ? '🏆 PERFECT · ' : ''}
+                      +{prediction.points} pts
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="card">
+            <h2>📜 Historique de mes pronostics</h2>
+
+            {finishedPredictions.length === 0 ? (
+              <p className="small">Aucun historique disponible.</p>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Match</th>
+                      <th>Prono</th>
+                      <th>Résultat</th>
+                      <th>Buteur</th>
+                      <th>Bonus</th>
+                      <th>Points</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {finishedPredictions.map((prediction) => (
+                      <tr key={prediction.id}>
+                        <td>
+                          {prediction.matches?.home_team || 'Équipe domicile'} -{' '}
+                          {prediction.matches?.away_team || 'Équipe extérieur'}
+                        </td>
+
+                        <td>
+                          {prediction.predicted_home_score} -{' '}
+                          {prediction.predicted_away_score}
+                        </td>
+
+                        <td>
+                          {prediction.matches?.home_score ?? '-'} -{' '}
+                          {prediction.matches?.away_score ?? '-'}
+                        </td>
+
+                        <td>{prediction.first_scorer_correct ? '✅' : '—'}</td>
+
+                        <td>{prediction.double_bonus ? '🔥' : '—'}</td>
+
+                        <td style={{ fontWeight: 900 }}>{prediction.points}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </>
       )}
     </main>
