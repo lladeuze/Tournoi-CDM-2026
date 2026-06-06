@@ -795,9 +795,11 @@ export default function PredictionsPage() {
               <p>Aucun match terminé pour le moment.</p>
             </div>
           ) : (
-            <div className="grid">
-              {historyMatches.map((match) => renderMatchCard(match, 'history'))}
-            </div>
+            <div style={{ display: 'grid', gap: 16 }}>
+  {matches.map((match) => (
+    ...
+  ))}
+</div>
           )}
         </>
       )}
