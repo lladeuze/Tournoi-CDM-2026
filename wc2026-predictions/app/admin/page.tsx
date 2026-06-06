@@ -287,11 +287,14 @@ export default function AdminPage() {
 async function updateWinnerTeam() {
   const { error } = await supabase
     .from('tournament_settings')
-    .update({
-      winner_team_id: winnerTeamId || null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', 1);
+    .upsert(
+      {
+        id: 1,
+        winner_team_id: winnerTeamId || null,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'id' }
+    );
 
   if (error) {
     setMessage(`Erreur champion officiel : ${error.message}`);
