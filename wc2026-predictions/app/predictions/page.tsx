@@ -61,37 +61,70 @@ const bonusAllowedPhases = [
 ];
 
 const flagsByCode: Record<string, string> = {
-  MEX: '🇲🇽',
-  RSA: '🇿🇦',
-  KOR: '🇰🇷',
-  CZE: '🇨🇿',
-  CAN: '🇨🇦',
-  BEL: '🇧🇪',
-  FRA: '🇫🇷',
-  SWE: '🇸🇪',
-  BRA: '🇧🇷',
+  ALG: '🇩🇿',
   ARG: '🇦🇷',
-  GER: '🇩🇪',
-  ESP: '🇪🇸',
-  POR: '🇵🇹',
-  ENG: '🏴',
-  USA: '🇺🇸',
-  NED: '🇳🇱',
-  ITA: '🇮🇹',
-  JPN: '🇯🇵',
-  MAR: '🇲🇦',
-  SEN: '🇸🇳',
-  GHA: '🇬🇭',
-  URU: '🇺🇾',
-  COL: '🇨🇴',
-  CHI: '🇨🇱',
-  ECU: '🇪🇨',
   AUS: '🇦🇺',
-  DEN: '🇩🇰',
-  CRO: '🇭🇷',
-  SUI: '🇨🇭',
-  POL: '🇵🇱',
   AUT: '🇦🇹',
+
+  BEL: '🇧🇪',
+  BIH: '🇧🇦',
+  BRA: '🇧🇷',
+
+  CAN: '🇨🇦',
+  CIV: '🇨🇮',
+  COD: '🇨🇩',
+  COL: '🇨🇴',
+  CPV: '🇨🇻',
+  CRO: '🇭🇷',
+  CUW: '🇨🇼',
+  CZE: '🇨🇿',
+
+  ECU: '🇪🇨',
+  EGY: '🇪🇬',
+  ENG: '🏴',
+
+  FRA: '🇫🇷',
+
+  GER: '🇩🇪',
+  GHA: '🇬🇭',
+
+  HAI: '🇭🇹',
+
+  IRN: '🇮🇷',
+  IRQ: '🇮🇶',
+
+  JOR: '🇯🇴',
+  JPN: '🇯🇵',
+
+  KOR: '🇰🇷',
+  KSA: '🇸🇦',
+
+  MAR: '🇲🇦',
+  MEX: '🇲🇽',
+
+  NED: '🇳🇱',
+  NOR: '🇳🇴',
+  NZL: '🇳🇿',
+
+  PAN: '🇵🇦',
+  PAR: '🇵🇾',
+  POR: '🇵🇹',
+
+  QAT: '🇶🇦',
+
+  RSA: '🇿🇦',
+
+  SCO: '🏴',
+  SEN: '🇸🇳',
+  SUI: '🇨🇭',
+  SWE: '🇸🇪',
+
+  TUN: '🇹🇳',
+  TUR: '🇹🇷',
+
+  URU: '🇺🇾',
+  USA: '🇺🇸',
+  UZB: '🇺🇿',
 };
 
 type ViewMode = 'upcoming' | 'history';
