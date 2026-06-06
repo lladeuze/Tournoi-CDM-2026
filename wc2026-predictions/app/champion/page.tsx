@@ -269,18 +269,25 @@ export default function ChampionPage() {
   }
 
   async function saveChampionPrediction(type: 'initial' | 'second') {
-    if (!userId) return;
+  if (!userId) return;
 
-    const isInitial = type === 'initial';
+  const isInitial = type === 'initial';
 
-    const selectedTeamId = isInitial
-      ? initialChampionTeamId
-      : secondChampionTeamId;
+  if (isInitial && !canEditInitialChampion()) {
+    setMessage('Le champion initial est verrouillé.');
+    return;
+  }
 
-    if (!selectedTeamId) {
-      setMessage('Sélectionne une équipe championne.');
-      return;
-    }
+  if (!isInitial && !canEditSecondChampion()) {
+    setMessage(
+      'Le deuxième champion ne peut être choisi qu’entre le 28 juin 2026 à 00h00 et le 29 juin 2026 à 18h00.'
+    );
+    return;
+  }
+
+  const selectedTeamId = isInitial
+    ? initialChampionTeamId
+    : secondChampionTeamId;
 
     const payload = {
       user_id: userId,
@@ -400,14 +407,14 @@ export default function ChampionPage() {
                 <p className="small">Aucun champion initial sélectionné.</p>
               )}
 
-              <button
-                type="button"
-                onClick={() => saveChampionPrediction('initial')}
-                disabled={!initialChampionTeamId}
-                style={{ marginTop: 12 }}
-              >
-                Sauvegarder mon champion initial
-              </button>
+             <button
+  type="button"
+  onClick={() => saveChampionPrediction('initial')}
+  disabled={!canEditInitialChampion() || !initialChampionTeamId}
+  style={{ marginTop: 12 }}
+>
+  Sauvegarder mon champion initial
+</button>
             </div>
 
             <div className="card">
@@ -421,14 +428,14 @@ export default function ChampionPage() {
                 <p className="small">Aucun deuxième champion sélectionné.</p>
               )}
 
-              <button
-                type="button"
-                onClick={() => saveChampionPrediction('second')}
-                disabled={!secondChampionTeamId}
-                style={{ marginTop: 12 }}
-              >
-                Sauvegarder mon champion après groupes
-              </button>
+<button
+  type="button"
+  onClick={() => saveChampionPrediction('second')}
+  disabled={!canEditSecondChampion() || !secondChampionTeamId}
+  style={{ marginTop: 12 }}
+>
+  Sauvegarder mon champion après groupes
+</button>
             </div>
           </div>
 
