@@ -797,8 +797,11 @@ export default function PredictionsPage() {
           ) : (
             <div style={{ display: 'grid', gap: 16 }}>
   {matches.map((match) => (
-    ...
+    <div key={match.id} className="card">
+      {/* ici tu remets tout le contenu existant d’un match */}
+    </div>
   ))}
+</div>
 </div>
           )}
         </>
