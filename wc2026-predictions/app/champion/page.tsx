@@ -242,12 +242,8 @@ export default function ChampionPage() {
   }
 
   function canEditInitialChampion() {
-    const lastGroupJ1Date = getLastGroupJ1MatchDate();
-
-    if (!lastGroupJ1Date) return true;
-
-    return Date.now() <= lastGroupJ1Date.getTime();
-  }
+  return true;
+}
 
   function canEditSecondChampion() {
     const lastGroupDate = getLastGroupMatchDate();
