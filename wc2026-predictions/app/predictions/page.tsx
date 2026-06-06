@@ -40,7 +40,7 @@ type Prediction = {
   points: number;
 };
 
-type ChampionPrediction = {
+type Champion = {
   id: string;
   user_id: string;
   initial_champion_team_id: string | null;
@@ -48,12 +48,6 @@ type ChampionPrediction = {
   initial_locked_at: string | null;
   second_locked_at: string | null;
 };
-
-const [championPrediction, setChampionPrediction] =
-  useState<ChampionPrediction | null>(null);
-
-const [initialChampionTeamId, setInitialChampionTeamId] = useState('');
-const [secondChampionTeamId, setSecondChampionTeamId] = useState('');
 
 const phaseLabels: Record<string, string> = {
   group_j1: 'Poules J1',
@@ -161,6 +155,9 @@ export default function PredictionsPage() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [playerSearchByMatch, setPlayerSearchByMatch] = useState<Record<string, string>>({});
   const [openScorerForMatch, setOpenScorerForMatch] = useState<string | null>(null);
+  const [championPrediction, setChampionPrediction] =useState<ChampionPrediction | null>(null);
+  const [initialChampionTeamId, setInitialChampionTeamId] = useState('');
+  const [secondChampionTeamId, setSecondChampionTeamId] = useState('');
 
   useEffect(() => {
     load();
