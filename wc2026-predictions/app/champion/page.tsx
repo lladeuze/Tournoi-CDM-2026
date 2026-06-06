@@ -405,70 +405,105 @@ export default function ChampionPage() {
 
           <div className="grid">
             <div className="card">
-              <h2>🎯 Champion initial</h2>
+              <div className="card">
+  <h2>🎯 Champion initial (+20 pts)</h2>
 
-              {initialChampionTeam ? (
-                <p>
-                  ✅ {initialChampionTeam.code} — {initialChampionTeam.name}
-                </p>
-              ) : (
-                <p className="small">Aucun champion initial sélectionné.</p>
-              )}
+  {initialChampionTeam ? (
+    <p>
+      ✅ {initialChampionTeam.code} — {initialChampionTeam.name}
+    </p>
+  ) : (
+    <p className="small">
+      Aucun champion initial sélectionné.
+    </p>
+  )}
 
-              <button
-                type="button"
-                disabled={!canEditInitialChampion()}
-                onClick={() => setSelectionMode('initial')}
-                className={selectionMode === 'initial' ? '' : 'secondary'}
-              >
-                {canEditInitialChampion()
-                  ? 'Choisir le champion initial'
-                  : 'Champion initial verrouillé'}
-              </button>
-
-              <button
-                type="button"
-                disabled={!canEditInitialChampion()}
-                onClick={() => saveChampionPrediction('initial')}
-                style={{ marginTop: 10 }}
-              >
-                Sauvegarder le champion initial
-              </button>
+  <button
+    type="button"
+    onClick={() => saveChampionPrediction('initial')}
+    disabled={!initialChampionTeamId}
+    style={{ marginTop: 12 }}
+  >
+    Sauvegarder mon champion initial
+  </button>
+</div>
             </div>
 
             <div className="card">
-              <h2>🔄 Champion après groupes</h2>
+              <div className="card">
+  <h2>🔄 Champion après groupes (+10 pts)</h2>
 
-              {secondChampionTeam ? (
-                <p>
-                  ✅ {secondChampionTeam.code} — {secondChampionTeam.name}
-                </p>
-              ) : (
-                <p className="small">Aucun deuxième champion sélectionné.</p>
-              )}
+  {secondChampionTeam ? (
+    <p>
+      ✅ {secondChampionTeam.code} — {secondChampionTeam.name}
+    </p>
+  ) : (
+    <p className="small">
+      Aucun deuxième champion sélectionné.
+    </p>
+  )}
 
-              <button
-                type="button"
-                disabled={!canEditSecondChampion()}
-                onClick={() => setSelectionMode('second')}
-                className={selectionMode === 'second' ? '' : 'secondary'}
-              >
-                {canEditSecondChampion()
-                  ? 'Choisir le deuxième champion'
-                  : 'Deuxième champion verrouillé'}
-              </button>
-
-              <button
-                type="button"
-                disabled={!canEditSecondChampion()}
-                onClick={() => saveChampionPrediction('second')}
-                style={{ marginTop: 10 }}
-              >
-                Sauvegarder le deuxième champion
-              </button>
-            </div>
+  <button
+    type="button"
+    onClick={() => saveChampionPrediction('second')}
+    disabled={!secondChampionTeamId}
+    style={{ marginTop: 12 }}
+  >
+    Sauvegarder mon deuxième champion
+  </button>
+</div>
+        
           </div>
 
+
+
+<div className="card">
+  <h2>🎯 Je sélectionne actuellement</h2>
+
+  <div
+    style={{
+      display: 'flex',
+      gap: 12,
+      flexWrap: 'wrap',
+      marginTop: 12,
+    }}
+  >
+    <button
+      type="button"
+      onClick={() => setSelectionMode('initial')}
+      className={
+        selectionMode === 'initial' ? '' : 'secondary'
+      }
+    >
+      Champion initial (+20 pts)
+    </button>
+
+    <button
+      type="button"
+      onClick={() => setSelectionMode('second')}
+      className={
+        selectionMode === 'second' ? '' : 'secondary'
+      }
+    >
+      Champion après groupes (+10 pts)
+    </button>
+  </div>
+
+  <p
+    className="small"
+    style={{ marginTop: 12 }}
+  >
+    Les équipes choisies ci-dessous seront appliquées à :
+    <strong>
+      {selectionMode === 'initial'
+        ? ' Champion initial'
+        : ' Champion après groupes'}
+    </strong>
+  </p>
+</div>
+
+
+            
           <div className="card">
             <h2>
               🌍 Sélection des équipes —{' '}
