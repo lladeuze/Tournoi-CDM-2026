@@ -265,11 +265,79 @@ export default function PredictionsPage() {
     return player.team_abr || (player.team_id ? teams[player.team_id]?.code : null) || '???';
   }
 
-  function getTeamFlag(team: Team | null) {
-    const code = team?.code?.trim().toUpperCase();
-    if (!code) return '🏳️';
-    return flagsByCode[code] || '🏳️';
+  function getTeamFlagByCode(code?: string | null) {
+  const normalizedCode = code?.trim().toUpperCase();
+
+  if (!normalizedCode) return '🏳️';
+
+  return flagsByCode[normalizedCode] || '🏳️';
+}
+
+function getTeamCodeByName(teamName: string) {
+  const normalizedName = teamName.trim().toLowerCase();
+
+  const codeByName: Record<string, string> = {
+    'mexique': 'MEX',
+    'afrique du sud': 'RSA',
+    'corée du sud': 'KOR',
+    'tchéquie': 'CZE',
+    'canada': 'CAN',
+    'bosnie-herzégovine': 'BIH',
+    'qatar': 'QAT',
+    'suisse': 'SUI',
+    'brésil': 'BRA',
+    'maroc': 'MAR',
+    'haïti': 'HAI',
+    'écosse': 'SCO',
+    'états-unis': 'USA',
+    'paraguay': 'PAR',
+    'australie': 'AUS',
+    'turquie': 'TUR',
+    'allemagne': 'GER',
+    'curaçao': 'CUW',
+    "côte d'ivoire": 'CIV',
+    'équateur': 'ECU',
+    'pays-bas': 'NED',
+    'japon': 'JPN',
+    'suède': 'SWE',
+    'tunisie': 'TUN',
+    'belgique': 'BEL',
+    'égypte': 'EGY',
+    'iran': 'IRN',
+    'nouvelle-zélande': 'NZL',
+    'espagne': 'ESP',
+    'cap-vert': 'CPV',
+    'arabie saoudite': 'KSA',
+    'uruguay': 'URU',
+    'france': 'FRA',
+    'sénégal': 'SEN',
+    'irak': 'IRQ',
+    'norvège': 'NOR',
+    'argentine': 'ARG',
+    'algérie': 'ALG',
+    'autriche': 'AUT',
+    'jordanie': 'JOR',
+    'portugal': 'POR',
+    'rd congo': 'COD',
+    'ouzbékistan': 'UZB',
+    'ouzbekistan': 'UZB',
+    'colombie': 'COL',
+    'angleterre': 'ENG',
+    'croatie': 'CRO',
+    'ghana': 'GHA',
+    'panama': 'PAN',
+  };
+
+  return codeByName[normalizedName] || null;
+}
+
+function getTeamFlag(team: Team | null, fallbackName: string) {
+  if (team?.code) {
+    return getTeamFlagByCode(team.code);
   }
+
+  return getTeamFlagByCode(getTeamCodeByName(fallbackName));
+}
 
   function getMatchPlayers(match: Match) {
     return playersByMatch[match.id] || [];
@@ -531,7 +599,7 @@ export default function PredictionsPage() {
 
         <div className="match-header">
           <div className="team-side">
-            <div className="team-flag">{getTeamFlag(homeTeam)}</div>
+            <div className="team-flag">{getTeamFlag(homeTeam, match.home_team)}</div>
             <div style={{ fontWeight: 900 }}>
               {homeTeam?.code || match.home_team}
             </div>
@@ -543,7 +611,7 @@ export default function PredictionsPage() {
           </div>
 
           <div className="team-side">
-            <div className="team-flag">{getTeamFlag(awayTeam)}</div>
+            <div className="team-flag">{getTeamFlag(awayTeam, match.away_team)}</div>
             <div style={{ fontWeight: 900 }}>
               {awayTeam?.code || match.away_team}
             </div>
@@ -592,13 +660,13 @@ export default function PredictionsPage() {
 
               {match.home_team_id && (
                 <option value={match.home_team_id}>
-                  {getTeamFlag(homeTeam)} {homeTeam?.name || match.home_team}
+                  {getTeamFlag(homeTeam, match.home_team)} {homeTeam?.name || match.home_team}
                 </option>
               )}
 
               {match.away_team_id && (
                 <option value={match.away_team_id}>
-                  {getTeamFlag(awayTeam)} {awayTeam?.name || match.away_team}
+                  {getTeamFlag(awayTeam, match.away_team)} {awayTeam?.name || match.away_team}
                 </option>
               )}
             </select>
