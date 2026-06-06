@@ -164,3 +164,9 @@ th { color:var(--muted); font-size:13px; }
   gap: 16px;
   grid-template-columns: 1fr;
 }
+
+.team-flag {
+  font-size: 4rem;
+  line-height: 1;
+  margin-bottom: 10px;
+}
