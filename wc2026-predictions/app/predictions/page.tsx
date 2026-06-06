@@ -934,84 +934,69 @@ function getFirstRoundOf32MatchDate() {
       )}
 
       {viewMode === 'upcoming' && (
-        <>
-          <div className="card">
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                gap: 12,
-                alignItems: 'center',
-                flexWrap: 'wrap',
-              }}
-            >
-              <button
-                type="button"
-                className="secondary"
-                onClick={() => setSelectedDate((date) => addDays(date, -1))}
-              >
-                ◀ Jour précédent
-              </button>
+  <>
+    <div className="card">
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          gap: 12,
+          alignItems: 'center',
+          flexWrap: 'wrap',
+        }}
+      >
+        <button
+          type="button"
+          className="secondary"
+          onClick={() => setSelectedDate((date) => addDays(date, -1))}
+        >
+          ◀ Jour précédent
+        </button>
 
-              <h2 style={{ margin: 0, textAlign: 'center' }}>
-                {formatDateTitle(selectedDate)}
-              </h2>
+        <h2 style={{ margin: 0, textAlign: 'center' }}>
+          {formatDateTitle(selectedDate)}
+        </h2>
 
-              <button
-                type="button"
-                className="secondary"
-                onClick={() => setSelectedDate((date) => addDays(date, 1))}
-              >
-                Jour suivant ▶
-              </button>
-            </div>
-          </div>
+        <button
+          type="button"
+          className="secondary"
+          onClick={() => setSelectedDate((date) => addDays(date, 1))}
+        >
+          Jour suivant ▶
+        </button>
+      </div>
+    </div>
 
-         <div className="card">
-  <h2>🏆 Mon champion du monde</h2>
+    <div className="card">
+      <h2>🏆 Pronostic Champion du Monde</h2>
 
-  <p className="small">
-    Pronostique le vainqueur de la Coupe du Monde 2026.
-  </p>
+      <p className="small">
+        Pronostique le vainqueur de la Coupe du Monde 2026 et gagne jusqu’à 20
+        points bonus.
+      </p>
 
-  <div style={{ marginBottom: 16 }}>
-    {championPrediction?.initial_champion_team_id ? (
-      <p>✅ Champion initial enregistré</p>
+      <Link href="/champion">
+        <button type="button" style={{ width: '100%', marginTop: 12 }}>
+          🏆 Gérer mon pronostic Champion
+        </button>
+      </Link>
+    </div>
+
+    {matchesForSelectedDate.length === 0 ? (
+      <div className="card">
+        <p>Aucun match prévu ce jour-là.</p>
+      </div>
     ) : (
-      <p>⚠️ Aucun champion sélectionné</p>
+      <div style={{ display: 'grid', gap: 16 }}>
+        {matchesForSelectedDate.map((match) =>
+          renderMatchCard(match, 'upcoming')
+        )}
+      </div>
     )}
-  </div>
+  </>
+)}
 
-  <a href="/champion">
-    <button
-      type="button"
-      style={{
-        width: '100%',
-      }}
-    >
-      🏆 Gérer mon pronostic champion
-    </button>
-  </a>
-</div>
-
-
-
-          
-          {matchesForSelectedDate.length === 0 ? (
-            <div className="card">
-              <p>Aucun match prévu ce jour-là.</p>
-            </div>
-          ) : (
-            <div style={{ display: 'grid', gap: 16 }}>
-              {matchesForSelectedDate.map((match) =>
-                renderMatchCard(match, 'upcoming')
-              )}
-            </div>
-          )}
-        </>
-      )}
-
-      {viewMode === 'history' && (
+{viewMode === 'history' && (
   <>
     {historyMatches.length === 0 ? (
       <div className="card">
