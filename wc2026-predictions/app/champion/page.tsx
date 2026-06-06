@@ -504,9 +504,15 @@ export default function ChampionPage() {
 
         return (
           <button
-            key={team.id}
-            type="button"
-            onClick={() => selectTeam(team)}
+            <button
+  key={team.id}
+  type="button"
+  disabled={
+    selectionMode === 'initial'
+      ? !canEditInitialChampion()
+      : !canEditSecondChampion()
+  }
+  onClick={() => selectTeam(team)}
             style={{
               padding: 14,
               borderRadius: 14,
@@ -517,7 +523,22 @@ export default function ChampionPage() {
                 ? 'rgba(94,234,212,0.14)'
                 : 'rgba(255,255,255,0.04)',
               color: 'white',
-              cursor: 'pointer',
+              opacity:
+  selectionMode === 'initial'
+    ? canEditInitialChampion()
+      ? 1
+      : 0.45
+    : canEditSecondChampion()
+    ? 1
+    : 0.45,
+cursor:
+  selectionMode === 'initial'
+    ? canEditInitialChampion()
+      ? 'pointer'
+      : 'not-allowed'
+    : canEditSecondChampion()
+    ? 'pointer'
+    : 'not-allowed',
               display: 'grid',
               gap: 8,
               justifyItems: 'center',
