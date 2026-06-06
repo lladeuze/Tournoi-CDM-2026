@@ -310,16 +310,18 @@ export default function AdminPage() {
       <h1>Admin — Résultats</h1>
 
       {message && (
-        <p
-          className={
-            message.includes('sauvegardé') ||
-            message.includes('recalculés') ||
-            message.includes('mis à jour')
-          }
-        >
-          {message}
-        </p>
-      )}
+  <p
+    className={
+      message.includes('sauvegardé') ||
+      message.includes('recalculés') ||
+      message.includes('mis à jour')
+        ? 'success'
+        : 'error'
+    }
+  >
+    {message}
+  </p>
+)}
 
       {isAdmin && (
         <>
