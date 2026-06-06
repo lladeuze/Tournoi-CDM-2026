@@ -40,6 +40,21 @@ type Prediction = {
   points: number;
 };
 
+type ChampionPrediction = {
+  id: string;
+  user_id: string;
+  initial_champion_team_id: string | null;
+  second_champion_team_id: string | null;
+  initial_locked_at: string | null;
+  second_locked_at: string | null;
+};
+
+const [championPrediction, setChampionPrediction] =
+  useState<ChampionPrediction | null>(null);
+
+const [initialChampionTeamId, setInitialChampionTeamId] = useState('');
+const [secondChampionTeamId, setSecondChampionTeamId] = useState('');
+
 const phaseLabels: Record<string, string> = {
   group_j1: 'Poules J1',
   group_j2: 'Poules J2',
@@ -166,15 +181,25 @@ export default function PredictionsPage() {
       { data: matchesData, error: matchesError },
       { data: predictionsData, error: predictionsError },
       { data: teamsData, error: teamsError },
+      { data: championData, error: championError },
     ] = await Promise.all([
       supabase.from('matches').select('*').order('kickoff_at', { ascending: true }),
       supabase.from('predictions').select('*').eq('user_id', user.id),
       supabase.from('teams').select('*').order('name', { ascending: true }),
+      supabase.from('champion_predictions').select('*').eq('user_id', user.id).maybeSingle(),
     ]);
 
     if (matchesError) return setMessage(`Erreur matchs: ${matchesError.message}`);
     if (predictionsError) return setMessage(`Erreur pronostics: ${predictionsError.message}`);
     if (teamsError) return setMessage(`Erreur équipes: ${teamsError.message}`);
+    if (championError) {return setMessage(`Erreur champion : ${championError.message}`);
+}
+
+if (championData) {
+  setChampionPrediction(championData);
+  setInitialChampionTeamId(championData.initial_champion_team_id || '');
+  setSecondChampionTeamId(championData.second_champion_team_id || '');
+}
 
     const loadedMatches = matchesData || [];
     setMatches(loadedMatches);
@@ -400,6 +425,135 @@ function getFlagUrl(team: Team | null, fallbackName: string) {
     });
   }
 
+  function getLastGroupJ1MatchDate() {
+  const groupJ1Matches = matches.filter((match) => match.phase === 'group_j1');
+
+  if (groupJ1Matches.length === 0) return null;
+
+  return new Date(
+    Math.max(
+      ...groupJ1Matches.map((match) =>
+        new Date(match.kickoff_at).getTime()
+      )
+    )
+  );
+}
+
+function getLastGroupMatchDate() {
+  const groupMatches = matches.filter((match) =>
+    ['group_j1', 'group_j2', 'group_j3'].includes(match.phase)
+  );
+
+  if (groupMatches.length === 0) return null;
+
+  return new Date(
+    Math.max(
+      ...groupMatches.map((match) =>
+        new Date(match.kickoff_at).getTime()
+      )
+    )
+  );
+}
+
+function getFirstRoundOf32MatchDate() {
+  const roundOf32Matches = matches.filter(
+    (match) => match.phase === 'round_of_32'
+  );
+
+  if (roundOf32Matches.length === 0) return null;
+
+  return new Date(
+    Math.min(
+      ...roundOf32Matches.map((match) =>
+        new Date(match.kickoff_at).getTime()
+      )
+    )
+  );
+}
+
+function canEditInitialChampion() {
+  const lastGroupJ1Date = getLastGroupJ1MatchDate();
+
+  if (!lastGroupJ1Date) return true;
+
+  return Date.now() <= lastGroupJ1Date.getTime();
+}
+
+function canEditSecondChampion() {
+  const lastGroupDate = getLastGroupMatchDate();
+  const firstRoundOf32Date = getFirstRoundOf32MatchDate();
+
+  if (!lastGroupDate || !firstRoundOf32Date) return false;
+
+  return (
+    Date.now() > lastGroupDate.getTime() &&
+    Date.now() < firstRoundOf32Date.getTime()
+  );
+}
+
+async function saveChampionPrediction(type: 'initial' | 'second') {
+  if (!userId) return;
+
+  const isInitial = type === 'initial';
+
+  if (isInitial && !canEditInitialChampion()) {
+    setMessage('Le pronostic champion initial est verrouillé.');
+    return;
+  }
+
+  if (!isInitial && !canEditSecondChampion()) {
+    setMessage(
+      'Le deuxième pronostic champion est disponible uniquement après les groupes et avant les 16es.'
+    );
+    return;
+  }
+
+  const selectedTeamId = isInitial
+    ? initialChampionTeamId
+    : secondChampionTeamId;
+
+  if (!selectedTeamId) {
+    setMessage('Sélectionne une équipe championne.');
+    return;
+  }
+
+  const payload = {
+    user_id: userId,
+    initial_champion_team_id: isInitial
+      ? selectedTeamId
+      : championPrediction?.initial_champion_team_id || null,
+    second_champion_team_id: isInitial
+      ? championPrediction?.second_champion_team_id || null
+      : selectedTeamId,
+    initial_locked_at: isInitial
+      ? new Date().toISOString()
+      : championPrediction?.initial_locked_at || null,
+    second_locked_at: isInitial
+      ? championPrediction?.second_locked_at || null
+      : new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+
+  const { error } = await supabase
+    .from('champion_predictions')
+    .upsert(payload, { onConflict: 'user_id' });
+
+  if (error) {
+    setMessage(`Erreur champion : ${error.message}`);
+    return;
+  }
+
+  setMessage(
+    isInitial
+      ? 'Champion initial sauvegardé.'
+      : 'Deuxième champion sauvegardé.'
+  );
+
+  await load();
+}
+
+
+  
   function update(match: Match, field: keyof Prediction, value: string | boolean) {
     setPredictions((current) => {
       const existing = current[match.id];
@@ -900,6 +1054,82 @@ function getFlagUrl(team: Team | null, fallbackName: string) {
             </div>
           </div>
 
+          <div className="card">
+  <h2>🏆 Mon champion du monde</h2>
+
+  <p className="small">
+    Choisis ton champion avant la fin de la J1 pour tenter de gagner 20 points.
+    Après les groupes, tu pourras faire un deuxième choix pour 10 points.
+  </p>
+
+  <div style={{ display: 'grid', gap: 16 }}>
+    <div>
+      <label>Champion initial — 20 pts</label>
+
+      <select
+        disabled={!canEditInitialChampion()}
+        value={initialChampionTeamId}
+        onChange={(e) => setInitialChampionTeamId(e.target.value)}
+      >
+        <option value="">Sélectionner une équipe</option>
+
+        {Object.values(teams).map((team) => (
+          <option key={team.id} value={team.id}>
+            {team.code} — {team.name}
+          </option>
+        ))}
+      </select>
+
+      <button
+        type="button"
+        disabled={!canEditInitialChampion()}
+        onClick={() => saveChampionPrediction('initial')}
+        style={{ marginTop: 10 }}
+      >
+        {canEditInitialChampion()
+          ? 'Sauvegarder mon champion initial'
+          : 'Champion initial verrouillé'}
+      </button>
+    </div>
+
+    <hr style={{ opacity: 0.15, width: '100%' }} />
+
+    <div>
+      <label>Deuxième champion — 10 pts</label>
+
+      <select
+        disabled={!canEditSecondChampion()}
+        value={secondChampionTeamId}
+        onChange={(e) => setSecondChampionTeamId(e.target.value)}
+      >
+        <option value="">Sélectionner une équipe</option>
+
+        {Object.values(teams).map((team) => (
+          <option key={team.id} value={team.id}>
+            {team.code} — {team.name}
+          </option>
+        ))}
+      </select>
+
+      <button
+        type="button"
+        disabled={!canEditSecondChampion()}
+        onClick={() => saveChampionPrediction('second')}
+        style={{ marginTop: 10 }}
+      >
+        {canEditSecondChampion()
+          ? 'Sauvegarder mon deuxième champion'
+          : 'Deuxième champion verrouillé'}
+      </button>
+    </div>
+  </div>
+</div>
+
+
+
+
+
+          
           {matchesForSelectedDate.length === 0 ? (
             <div className="card">
               <p>Aucun match prévu ce jour-là.</p>
