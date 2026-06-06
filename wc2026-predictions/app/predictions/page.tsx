@@ -779,7 +779,7 @@ export default function PredictionsPage() {
               <p>Aucun match prévu ce jour-là.</p>
             </div>
           ) : (
-            <div className="grid">
+            <div style={{ display: 'grid', gap: 16 }}>
               {matchesForSelectedDate.map((match) =>
                 renderMatchCard(match, 'upcoming')
               )}
