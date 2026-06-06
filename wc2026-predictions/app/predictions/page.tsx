@@ -165,8 +165,6 @@ export default function PredictionsPage() {
   const [playerSearchByMatch, setPlayerSearchByMatch] = useState<Record<string, string>>({});
   const [openScorerForMatch, setOpenScorerForMatch] = useState<string | null>(null);
   const [championPrediction, setChampionPrediction] =useState<ChampionPrediction | null>(null);
-  const [initialChampionTeamId, setInitialChampionTeamId] = useState('');
-  const [secondChampionTeamId, setSecondChampionTeamId] = useState('');
 
   useEffect(() => {
     load();
@@ -476,88 +474,6 @@ function getFirstRoundOf32MatchDate() {
     )
   );
 }
-
-function canEditInitialChampion() {
-  const lastGroupJ1Date = getLastGroupJ1MatchDate();
-
-  if (!lastGroupJ1Date) return true;
-
-  return Date.now() <= lastGroupJ1Date.getTime();
-}
-
-function canEditSecondChampion() {
-  const lastGroupDate = getLastGroupMatchDate();
-  const firstRoundOf32Date = getFirstRoundOf32MatchDate();
-
-  if (!lastGroupDate || !firstRoundOf32Date) return false;
-
-  return (
-    Date.now() > lastGroupDate.getTime() &&
-    Date.now() < firstRoundOf32Date.getTime()
-  );
-}
-
-async function saveChampionPrediction(type: 'initial' | 'second') {
-  if (!userId) return;
-
-  const isInitial = type === 'initial';
-
-  if (isInitial && !canEditInitialChampion()) {
-    setMessage('Le pronostic champion initial est verrouillé.');
-    return;
-  }
-
-  if (!isInitial && !canEditSecondChampion()) {
-    setMessage(
-      'Le deuxième pronostic champion est disponible uniquement après les groupes et avant les 16es.'
-    );
-    return;
-  }
-
-  const selectedTeamId = isInitial
-    ? initialChampionTeamId
-    : secondChampionTeamId;
-
-  if (!selectedTeamId) {
-    setMessage('Sélectionne une équipe championne.');
-    return;
-  }
-
-  const payload = {
-    user_id: userId,
-    initial_champion_team_id: isInitial
-      ? selectedTeamId
-      : championPrediction?.initial_champion_team_id || null,
-    second_champion_team_id: isInitial
-      ? championPrediction?.second_champion_team_id || null
-      : selectedTeamId,
-    initial_locked_at: isInitial
-      ? new Date().toISOString()
-      : championPrediction?.initial_locked_at || null,
-    second_locked_at: isInitial
-      ? championPrediction?.second_locked_at || null
-      : new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  };
-
-  const { error } = await supabase
-    .from('champion_predictions')
-    .upsert(payload, { onConflict: 'user_id' });
-
-  if (error) {
-    setMessage(`Erreur champion : ${error.message}`);
-    return;
-  }
-
-  setMessage(
-    isInitial
-      ? 'Champion initial sauvegardé.'
-      : 'Deuxième champion sauvegardé.'
-  );
-
-  await load();
-}
-
 
   
   function update(match: Match, field: keyof Prediction, value: string | boolean) {
