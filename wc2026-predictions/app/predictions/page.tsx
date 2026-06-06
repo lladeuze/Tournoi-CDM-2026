@@ -61,71 +61,61 @@ const bonusAllowedPhases = [
 ];
 
 const flagsByCode: Record<string, string> = {
-  ALG: '🇩🇿',
-  ARG: '🇦🇷',
-  AUS: '🇦🇺',
-  AUT: '🇦🇹',
-
-  BEL: '🇧🇪',
-  BIH: '🇧🇦',
-  BRA: '🇧🇷',
-
-  CAN: '🇨🇦',
-  CIV: '🇨🇮',
-  COD: '🇨🇩',
-  COL: '🇨🇴',
-  CPV: '🇨🇻',
-  CRO: '🇭🇷',
-  CUW: '🇨🇼',
-  CZE: '🇨🇿',
-
-  ECU: '🇪🇨',
-  EGY: '🇪🇬',
-  ENG: '🏴',
-
-  FRA: '🇫🇷',
-
-  GER: '🇩🇪',
-  GHA: '🇬🇭',
-
-  HAI: '🇭🇹',
-
-  IRN: '🇮🇷',
-  IRQ: '🇮🇶',
-
-  JOR: '🇯🇴',
-  JPN: '🇯🇵',
-
-  KOR: '🇰🇷',
-  KSA: '🇸🇦',
-
-  MAR: '🇲🇦',
-  MEX: '🇲🇽',
-
-  NED: '🇳🇱',
-  NOR: '🇳🇴',
-  NZL: '🇳🇿',
-
-  PAN: '🇵🇦',
-  PAR: '🇵🇾',
-  POR: '🇵🇹',
-
-  QAT: '🇶🇦',
-
-  RSA: '🇿🇦',
-
-  SCO: '🏴',
-  SEN: '🇸🇳',
-  SUI: '🇨🇭',
-  SWE: '🇸🇪',
-
-  TUN: '🇹🇳',
-  TUR: '🇹🇷',
-
-  URU: '🇺🇾',
-  USA: '🇺🇸',
-  UZB: '🇺🇿',
+  MEX: 'mx',
+  RSA: 'za',
+  KOR: 'kr',
+  CZE: 'cz',
+  CAN: 'ca',
+  BIH: 'ba',
+  QAT: 'qa',
+  SUI: 'ch',
+  BRA: 'br',
+  MAR: 'ma',
+  HAI: 'ht',
+  SCO: 'gb-sct',
+  USA: 'us',
+  PAR: 'py',
+  AUS: 'au',
+  TUR: 'tr',
+  GER: 'de',
+  CUW: 'cw',
+  CIV: 'ci',
+  ECU: 'ec',
+  NED: 'nl',
+  JPN: 'jp',
+  SWE: 'se',
+  TUN: 'tn',
+  BEL: 'be',
+  EGY: 'eg',
+  IRN: 'ir',
+  NZL: 'nz',
+  ESP: 'es',
+  CPV: 'cv',
+  KSA: 'sa',
+  URU: 'uy',
+  FRA: 'fr',
+  SEN: 'sn',
+  IRQ: 'iq',
+  NOR: 'no',
+  ARG: 'ar',
+  ALG: 'dz',
+  AUT: 'at',
+  JOR: 'jo',
+  POR: 'pt',
+  COD: 'cd',
+  UZB: 'uz',
+  COL: 'co',
+  ENG: 'gb-eng',
+  CRO: 'hr',
+  GHA: 'gh',
+  PAN: 'pa',
 };
+function getFlagUrl(team: Team | null, fallbackName: string) {
+  const code = team?.code || getTeamCodeByName(fallbackName);
+  const flagCode = code ? flagsByCode[code.trim().toUpperCase()] : null;
+
+  return flagCode ? `https://flagcdn.com/w160/${flagCode}.png` : null;
+}
 
 type ViewMode = 'upcoming' | 'history';
 
@@ -599,7 +589,7 @@ function getTeamFlag(team: Team | null, fallbackName: string) {
 
         <div className="match-header">
           <div className="team-side">
-            <div className="team-flag">{getTeamFlag(homeTeam, match.home_team)}</div>
+            <div className="team-flag">   {getFlagUrl(homeTeam, match.home_team) ? (     <img       src={getFlagUrl(homeTeam, match.home_team)!}       alt={`Drapeau ${homeTeam?.name || match.home_team}`}     />   ) : (     '🏳️'   )} </div>
             <div style={{ fontWeight: 900 }}>
               {homeTeam?.code || match.home_team}
             </div>
@@ -611,7 +601,7 @@ function getTeamFlag(team: Team | null, fallbackName: string) {
           </div>
 
           <div className="team-side">
-            <div className="team-flag">{getTeamFlag(awayTeam, match.away_team)}</div>
+            <div className="team-flag">   {getFlagUrl(awayTeam, match.away_team) ? (     <img       src={getFlagUrl(awayTeam, match.away_team)!}       alt={`Drapeau ${awayTeam?.name || match.away_team}`}     />   ) : (     '🏳️'   )} </div>
             <div style={{ fontWeight: 900 }}>
               {awayTeam?.code || match.away_team}
             </div>
