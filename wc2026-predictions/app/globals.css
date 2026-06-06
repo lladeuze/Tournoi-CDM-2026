@@ -158,3 +158,9 @@ th { color:var(--muted); font-size:13px; }
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.06); }
 }
+
+.matches-list {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1fr;
+}
