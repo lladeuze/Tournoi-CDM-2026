@@ -49,6 +49,15 @@ type Champion = {
   second_locked_at: string | null;
 };
 
+type ChampionPrediction = {
+  id: string;
+  user_id: string;
+  initial_champion_team_id: string | null;
+  second_champion_team_id: string | null;
+  initial_locked_at: string | null;
+  second_locked_at: string | null;
+};
+
 const phaseLabels: Record<string, string> = {
   group_j1: 'Poules J1',
   group_j2: 'Poules J2',
