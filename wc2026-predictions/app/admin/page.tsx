@@ -114,7 +114,7 @@ export default function AdminPage() {
 ] = await Promise.all([
   supabase.from('matches').select('*').order('kickoff_at', { ascending: true }),
   supabase.from('teams').select('*').order('name', { ascending: true }),
-  supabase.from('tournament_settings').select('*').eq('id', 1).single(),
+  supabase.from('tournament_settings').select('*').eq('id', 1).maybeSingle()
 ]);
 
     if (matchesError) {
