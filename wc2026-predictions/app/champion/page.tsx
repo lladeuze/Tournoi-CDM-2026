@@ -247,11 +247,14 @@ export default function ChampionPage() {
     return true;
   }
 
-  function getCurrentSelectedTeamId() {
-    return selectionMode === 'initial'
-      ? initialChampionTeamId
-      : secondChampionTeamId;
-  }
+  function canEditSecondChampion() {
+  const now = new Date();
+
+  const openingDate = new Date('2026-06-28T00:00:00+02:00');
+  const closingDate = new Date('2026-06-29T18:00:00+02:00');
+
+  return now >= openingDate && now <= closingDate;
+}
 
   function selectTeam(team: Team) {
     if (selectionMode === 'initial') {
@@ -317,8 +320,8 @@ export default function ChampionPage() {
   }
 
   const lastGroupJ1Date = getLastGroupJ1MatchDate();
-  const lastGroupDate = getLastGroupMatchDate();
-  const firstRoundOf32Date = getFirstRoundOf32MatchDate();
+  const lastGroupDate = new Date('2026-06-28T00:00:00+02:00');
+  const firstRoundOf32Date = new Date('2026-06-29T18:00:00+02:00');
 
   return (
     <main className="container">
@@ -473,62 +476,66 @@ export default function ChampionPage() {
                 : 'Champion après groupes'}
             </h2>
 
-            <div
+            {teams.length === 0 ? (
+  <p className="error">
+    Aucune équipe chargée. Vérifie que la table teams est accessible avec les
+    droits RLS.
+  </p>
+) : (
+  <div
+    style={{
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+      gap: 12,
+    }}
+  >
+    {teams.map((team) => {
+      const flagUrl = getFlagUrl(team);
+      const selected = getCurrentSelectedTeamId() === team.id;
+
+      return (
+        <button
+          key={team.id}
+          type="button"
+          onClick={() => selectTeam(team)}
+          style={{
+            padding: 14,
+            borderRadius: 14,
+            border: selected
+              ? '2px solid #5eead4'
+              : '1px solid rgba(255,255,255,0.12)',
+            background: selected
+              ? 'rgba(94,234,212,0.14)'
+              : 'rgba(255,255,255,0.04)',
+            color: 'white',
+            cursor: 'pointer',
+            display: 'grid',
+            gap: 8,
+            justifyItems: 'center',
+          }}
+        >
+          {flagUrl ? (
+            <img
+              src={flagUrl}
+              alt={`Drapeau ${team.name}`}
               style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-                gap: 12,
+                width: 72,
+                height: 48,
+                objectFit: 'cover',
+                borderRadius: 8,
               }}
-            >
-              {teams.map((team) => {
-                const flagUrl = getFlagUrl(team);
-                const selected = getCurrentSelectedTeamId() === team.id;
+            />
+          ) : (
+            <span style={{ fontSize: 36 }}>🏳️</span>
+          )}
 
-                return (
-                  <button
-                    key={team.id}
-                    type="button"
-                    onClick={() => selectTeam(team)}
-                    style={{
-                      padding: 14,
-                      borderRadius: 14,
-                      border: selected
-                        ? '2px solid #5eead4'
-                        : '1px solid rgba(255,255,255,0.12)',
-                      background: selected
-                        ? 'rgba(94,234,212,0.14)'
-                        : 'rgba(255,255,255,0.04)',
-                      color: 'white',
-                      cursor: 'pointer',
-                      display: 'grid',
-                      gap: 8,
-                      justifyItems: 'center',
-                    }}
-                  >
-                    {flagUrl ? (
-                      <img
-                        src={flagUrl}
-                        alt={`Drapeau ${team.name}`}
-                        style={{
-                          width: 72,
-                          height: 48,
-                          objectFit: 'cover',
-                          borderRadius: 8,
-                        }}
-                      />
-                    ) : (
-                      <span style={{ fontSize: 36 }}>🏳️</span>
-                    )}
-
-                    <strong>{team.code || '---'}</strong>
-                    <span className="small">{team.name}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </>
-      )}
+          <strong>{team.code || '---'}</strong>
+          <span className="small">{team.name}</span>
+        </button>
+      );
+    })}
+  </div>
+)}
     </main>
   );
 }
