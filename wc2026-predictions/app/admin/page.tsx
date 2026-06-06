@@ -33,6 +33,12 @@ type Match = {
   phase: string;
 };
 
+type TournamentSettings = {
+  id: number;
+  winner_team_id: string | null;
+  updated_at: string | null;
+};
+
 const phaseLabels: Record<string, string> = {
   group_j1: 'Poules J1',
   group_j2: 'Poules J2',
@@ -59,6 +65,8 @@ export default function AdminPage() {
   const [phaseFilter, setPhaseFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [search, setSearch] = useState('');
+  const [tournamentSettings, setTournamentSettings] =useState<TournamentSettings | null>(null);
+  const [winnerTeamId, setWinnerTeamId] = useState('');
 
   useEffect(() => {
     load();
@@ -100,12 +108,14 @@ export default function AdminPage() {
     setIsAdmin(true);
 
     const [
-      { data: matchesData, error: matchesError },
-      { data: teamsData, error: teamsError },
-    ] = await Promise.all([
-      supabase.from('matches').select('*').order('kickoff_at', { ascending: true }),
-      supabase.from('teams').select('*').order('name', { ascending: true }),
-    ]);
+  { data: matchesData, error: matchesError },
+  { data: teamsData, error: teamsError },
+  { data: settingsData, error: settingsError },
+] = await Promise.all([
+  supabase.from('matches').select('*').order('kickoff_at', { ascending: true }),
+  supabase.from('teams').select('*').order('name', { ascending: true }),
+  supabase.from('tournament_settings').select('*').eq('id', 1).single(),
+]);
 
     if (matchesError) {
       setMessage(`Erreur matchs : ${matchesError.message}`);
@@ -116,6 +126,11 @@ export default function AdminPage() {
       setMessage(`Erreur équipes : ${teamsError.message}`);
       return;
     }
+    
+    if (settingsError) {
+  setMessage(`Erreur paramètres tournoi : ${settingsError.message}`);
+  return;
+    }
 
     const teamsById: Record<string, Team> = {};
 
@@ -124,6 +139,8 @@ export default function AdminPage() {
     });
 
     setTeams(teamsById);
+    setTournamentSettings(settingsData as TournamentSettings);
+    setWinnerTeamId(settingsData?.winner_team_id || '');
     setMatches(matchesData || []);
   }
 
@@ -295,9 +312,9 @@ export default function AdminPage() {
       {message && (
         <p
           className={
-            message.includes('sauvegardé') || message.includes('recalculés')
-              ? 'success'
-              : 'error'
+            message.includes('sauvegardé') ||
+            message.includes('recalculés') ||
+            message.includes('mis à jour')
           }
         >
           {message}
@@ -343,6 +360,42 @@ export default function AdminPage() {
               </div>
             </div>
           </div>
+
+          <div className="card">
+  <h2>🏆 Champion officiel</h2>
+
+  <p className="small">
+    Ce choix déclenche les points bonus du pronostic champion dans le classement.
+  </p>
+
+  <select
+    value={winnerTeamId}
+    onChange={(e) => setWinnerTeamId(e.target.value)}
+  >
+    <option value="">Aucun champion officiel</option>
+
+    {Object.values(teams).map((team) => (
+      <option key={team.id} value={team.id}>
+        {team.code ? `${team.code} — ` : ''}
+        {team.name}
+      </option>
+    ))}
+  </select>
+
+  <button
+    type="button"
+    onClick={updateWinnerTeam}
+    style={{ marginTop: 12 }}
+  >
+    Sauvegarder le champion officiel
+  </button>
+
+  {tournamentSettings?.winner_team_id && (
+    <p className="small" style={{ marginTop: 10 }}>
+      Champion actuellement enregistré.
+    </p>
+  )}
+</div>
 
           {filteredMatches.map((match) => {
             const homeName = getTeamName(match.home_team_id, match.home_team);
