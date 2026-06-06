@@ -11,6 +11,7 @@ type LeaderboardRow = {
   exact_scores_count: number;
   correct_results_count: number;
   first_scorers_count: number;
+  champion_bonus_points: number;
 };
 
 export default function LeaderboardPage() {
@@ -147,6 +148,7 @@ export default function LeaderboardPage() {
                   <th style={{ padding: 10 }}>Bons résultats</th>
                   <th style={{ padding: 10 }}>Buteurs trouvés</th>
                   <th style={{ padding: 10 }}>Pronos</th>
+                  <th style={{ padding: 10 }}>Champion</th>
                 </tr>
               </thead>
 
@@ -185,6 +187,11 @@ export default function LeaderboardPage() {
                     <td style={{ padding: 10 }}>
                       {player.predictions_count}
                     </td>
+                    
+                    <td style={{ padding: 10 }}>
+                      +{player.champion_bonus_points ?? 0}
+                    </td>
+                  
                   </tr>
                 ))}
               </tbody>
