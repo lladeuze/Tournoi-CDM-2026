@@ -173,10 +173,24 @@ export default function PredictionsPage() {
     });
     setPredictions(byMatch);
 
-    const firstUpcoming = loadedMatches.find((match) => match.status !== 'finished');
-    if (firstUpcoming) {
-      setSelectedDate(new Date(firstUpcoming.kickoff_at));
-    }
+    setSelectedDate((currentDate) => {
+  const currentDateKey = toDateKey(currentDate);
+
+  const stillHasMatchesOnCurrentDate = loadedMatches.some((match) => {
+    return (
+      match.status !== 'finished' &&
+      toDateKey(new Date(match.kickoff_at)) === currentDateKey
+    );
+  });
+
+  if (stillHasMatchesOnCurrentDate) {
+    return currentDate;
+  }
+
+  const firstUpcoming = loadedMatches.find((match) => match.status !== 'finished');
+
+  return firstUpcoming ? new Date(firstUpcoming.kickoff_at) : currentDate;
+});
   }
 
   const upcomingMatches = useMemo(() => {
