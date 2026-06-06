@@ -110,12 +110,7 @@ const flagsByCode: Record<string, string> = {
   GHA: 'gh',
   PAN: 'pa',
 };
-function getFlagUrl(team: Team | null, fallbackName: string) {
-  const code = team?.code || getTeamCodeByName(fallbackName);
-  const flagCode = code ? flagsByCode[code.trim().toUpperCase()] : null;
 
-  return flagCode ? `https://flagcdn.com/w160/${flagCode}.png` : null;
-}
 
 type ViewMode = 'upcoming' | 'history';
 
@@ -328,7 +323,12 @@ function getTeamFlag(team: Team | null, fallbackName: string) {
 
   return getTeamFlagByCode(getTeamCodeByName(fallbackName));
 }
+function getFlagUrl(team: Team | null, fallbackName: string) {
+  const code = team?.code || getTeamCodeByName(fallbackName);
+  const flagCode = code ? flagsByCode[code.trim().toUpperCase()] : null;
 
+  return flagCode ? `https://flagcdn.com/w160/${flagCode}.png` : null;
+}
   function getMatchPlayers(match: Match) {
     return playersByMatch[match.id] || [];
   }
