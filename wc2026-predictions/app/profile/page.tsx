@@ -3,6 +3,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 
+type Profile = {
+  id: string;
+  email: string;
+  username: string;
+  is_admin: boolean;
+  created_at: string;
+};
+
 type LeaderboardRow = {
   user_id: string;
   username: string;
@@ -50,6 +58,10 @@ const phaseLabels: Record<string, string> = {
 
 export default function ProfilePage() {
   const [userId, setUserId] = useState<string | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [username, setUsername] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+
   const [me, setMe] = useState<LeaderboardRow | null>(null);
   const [rank, setRank] = useState<number | null>(null);
   const [predictions, setPredictions] = useState<PredictionRow[]>([]);
@@ -83,9 +95,24 @@ export default function ProfilePage() {
     setUserId(user.id);
 
     const [
+      { data: profileData, error: profileError },
       { data: leaderboardData, error: leaderboardError },
       { data: predictionsData, error: predictionsError },
     ] = await Promise.all([
+      supabase
+        .from('profiles')
+        .select(
+          `
+          id,
+          email,
+          username,
+          is_admin,
+          created_at
+        `
+        )
+        .eq('id', user.id)
+        .single(),
+
       supabase
         .from('leaderboard')
         .select('*')
@@ -121,6 +148,12 @@ export default function ProfilePage() {
         .eq('user_id', user.id),
     ]);
 
+    if (profileError) {
+      setMessage(`Erreur profil : ${profileError.message}`);
+      setLoading(false);
+      return;
+    }
+
     if (leaderboardError) {
       setMessage(`Erreur classement : ${leaderboardError.message}`);
       setLoading(false);
@@ -132,6 +165,9 @@ export default function ProfilePage() {
       setLoading(false);
       return;
     }
+
+    setProfile(profileData as Profile);
+    setUsername(profileData.username || '');
 
     const leaderboard = (leaderboardData || []) as LeaderboardRow[];
     const index = leaderboard.findIndex((row) => row.user_id === user.id);
@@ -159,6 +195,44 @@ export default function ProfilePage() {
 
     setPredictions(normalizedPredictions);
     setLoading(false);
+  }
+
+  async function updateUsername() {
+    if (!userId || !username.trim()) return;
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        username: username.trim(),
+      })
+      .eq('id', userId);
+
+    if (error) {
+      setMessage(`Erreur pseudo : ${error.message}`);
+      return;
+    }
+
+    setMessage('Pseudo mis à jour.');
+    await loadProfile();
+  }
+
+  async function updatePassword() {
+    if (!newPassword || newPassword.length < 6) {
+      setMessage('Le mot de passe doit contenir au moins 6 caractères.');
+      return;
+    }
+
+    const { error } = await supabase.auth.updateUser({
+      password: newPassword,
+    });
+
+    if (error) {
+      setMessage(`Erreur mot de passe : ${error.message}`);
+      return;
+    }
+
+    setNewPassword('');
+    setMessage('Mot de passe mis à jour.');
   }
 
   const bonusUsed = useMemo(() => {
@@ -213,134 +287,57 @@ export default function ProfilePage() {
           </div>
 
           <div className="card">
-            <h2>🔥 Mes bonus utilisés</h2>
+            <h2>⚙️ Mon compte</h2>
 
-            {bonusUsed.length === 0 ? (
-              <p className="small">Aucun bonus utilisé pour le moment.</p>
-            ) : (
-              <div style={{ display: 'grid', gap: 10 }}>
-                {bonusUsed.map((prediction) => (
-                  <div
-                    key={prediction.id}
-                    style={{
-                      padding: 12,
-                      borderRadius: 12,
-                      background: 'rgba(255,255,255,0.04)',
-                      border: '1px solid rgba(255,255,255,0.10)',
-                    }}
-                  >
-                    <strong>
-                      {prediction.matches?.home_team || 'Équipe domicile'} -{' '}
-                      {prediction.matches?.away_team || 'Équipe extérieur'}
-                    </strong>
-
-                    <p className="small" style={{ marginBottom: 0 }}>
-                      {phaseLabels[prediction.matches?.phase || ''] ||
-                        prediction.matches?.phase ||
-                        'Phase inconnue'}{' '}
-                      · {prediction.points} pts
-                    </p>
-                  </div>
-                ))}
+            <div style={{ display: 'grid', gap: 12 }}>
+              <div>
+                <p className="small">Email</p>
+                <strong>{profile?.email || '-'}</strong>
               </div>
-            )}
+
+              <div>
+                <p className="small">Pseudo</p>
+                <input
+                  value={username}
+                  onChange={(event) => setUsername(event.target.value)}
+                  placeholder="Ton pseudo"
+                />
+              </div>
+
+              <div>
+                <p className="small">Rôle</p>
+                <strong>{profile?.is_admin ? 'Admin' : 'Joueur'}</strong>
+              </div>
+
+              <div>
+                <p className="small">Date de création</p>
+                <strong>
+                  {profile?.created_at
+                    ? new Date(profile.created_at).toLocaleDateString('fr-FR')
+                    : '-'}
+                </strong>
+              </div>
+
+              <button onClick={updateUsername}>Sauvegarder le pseudo</button>
+            </div>
+
+            <hr style={{ margin: '24px 0', opacity: 0.15 }} />
+
+            <h3>Modifier mon mot de passe</h3>
+
+            <div style={{ display: 'grid', gap: 12 }}>
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(event) => setNewPassword(event.target.value)}
+                placeholder="Nouveau mot de passe"
+              />
+
+              <button onClick={updatePassword}>Modifier le mot de passe</button>
+            </div>
           </div>
 
-          <div className="card">
-            <h2>🏆 Mes meilleurs pronostics</h2>
-
-            {bestPredictions.length === 0 ? (
-              <p className="small">Aucun match terminé pour le moment.</p>
-            ) : (
-              <div style={{ display: 'grid', gap: 10 }}>
-                {bestPredictions.map((prediction) => (
-                  <div
-                    key={prediction.id}
-                    style={{
-                      padding: 12,
-                      borderRadius: 12,
-                      background:
-                        prediction.points >= 11
-                          ? 'rgba(34,197,94,0.14)'
-                          : 'rgba(255,255,255,0.04)',
-                      border:
-                        prediction.points >= 11
-                          ? '1px solid rgba(34,197,94,0.7)'
-                          : '1px solid rgba(255,255,255,0.10)',
-                    }}
-                  >
-                    <strong>
-                      {prediction.matches?.home_team || 'Équipe domicile'} -{' '}
-                      {prediction.matches?.away_team || 'Équipe extérieur'}
-                    </strong>
-
-                    <p className="small">
-                      Prono : {prediction.predicted_home_score} -{' '}
-                      {prediction.predicted_away_score}
-                      {' · '}
-                      Résultat : {prediction.matches?.home_score ?? '-'} -{' '}
-                      {prediction.matches?.away_score ?? '-'}
-                    </p>
-
-                    <p style={{ margin: 0, fontWeight: 900 }}>
-                      {prediction.points >= 11 ? '🏆 PERFECT · ' : ''}
-                      +{prediction.points} pts
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="card">
-            <h2>📜 Historique de mes pronostics</h2>
-
-            {finishedPredictions.length === 0 ? (
-              <p className="small">Aucun historique disponible.</p>
-            ) : (
-              <div style={{ overflowX: 'auto' }}>
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Match</th>
-                      <th>Prono</th>
-                      <th>Résultat</th>
-                      <th>Buteur</th>
-                      <th>Bonus</th>
-                      <th>Points</th>
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    {finishedPredictions.map((prediction) => (
-                      <tr key={prediction.id}>
-                        <td>
-                          {prediction.matches?.home_team || 'Équipe domicile'} -{' '}
-                          {prediction.matches?.away_team || 'Équipe extérieur'}
-                        </td>
-
-                        <td>
-                          {prediction.predicted_home_score} -{' '}
-                          {prediction.predicted_away_score}
-                        </td>
-
-                        <td>
-                          {prediction.matches?.home_score ?? '-'} -{' '}
-                          {prediction.matches?.away_score ?? '-'}
-                        </td>
-
-                        <td>{prediction.first_scorer_correct ? '✅' : '—'}</td>
-
-                        <td>{prediction.double_bonus ? '🔥' : '—'}</td>
-
-                        <td style={{ fontWeight: 900 }}>{prediction.points}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
+          {/* Le reste de ta page reste identique */}
         </>
       )}
     </main>
