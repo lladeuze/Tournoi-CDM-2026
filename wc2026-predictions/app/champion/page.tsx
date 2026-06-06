@@ -502,48 +502,48 @@ export default function ChampionPage() {
         const flagUrl = getFlagUrl(team);
         const selected = getCurrentSelectedTeamId() === team.id;
 
+        
         return (
-          <button
-            <button
-  key={team.id}
-  type="button"
-  disabled={
-    selectionMode === 'initial'
-      ? !canEditInitialChampion()
-      : !canEditSecondChampion()
-  }
-  onClick={() => selectTeam(team)}
-            style={{
-              padding: 14,
-              borderRadius: 14,
-              border: selected
-                ? '2px solid #5eead4'
-                : '1px solid rgba(255,255,255,0.12)',
-              background: selected
-                ? 'rgba(94,234,212,0.14)'
-                : 'rgba(255,255,255,0.04)',
-              color: 'white',
-              opacity:
-  selectionMode === 'initial'
-    ? canEditInitialChampion()
-      ? 1
-      : 0.45
-    : canEditSecondChampion()
-    ? 1
-    : 0.45,
-cursor:
-  selectionMode === 'initial'
-    ? canEditInitialChampion()
-      ? 'pointer'
-      : 'not-allowed'
-    : canEditSecondChampion()
-    ? 'pointer'
-    : 'not-allowed',
-              display: 'grid',
-              gap: 8,
-              justifyItems: 'center',
-            }}
-          >
+  <button
+    key={team.id}
+    type="button"
+    disabled={
+      selectionMode === 'initial'
+        ? !canEditInitialChampion()
+        : !canEditSecondChampion()
+    }
+    onClick={() => selectTeam(team)}
+    style={{
+      padding: 14,
+      borderRadius: 14,
+      border: selected
+        ? '2px solid #5eead4'
+        : '1px solid rgba(255,255,255,0.12)',
+      background: selected
+        ? 'rgba(94,234,212,0.14)'
+        : 'rgba(255,255,255,0.04)',
+      color: 'white',
+      opacity:
+        selectionMode === 'initial'
+          ? canEditInitialChampion()
+            ? 1
+            : 0.45
+          : canEditSecondChampion()
+          ? 1
+          : 0.45,
+      cursor:
+        selectionMode === 'initial'
+          ? canEditInitialChampion()
+            ? 'pointer'
+            : 'not-allowed'
+          : canEditSecondChampion()
+          ? 'pointer'
+          : 'not-allowed',
+      display: 'grid',
+      gap: 8,
+      justifyItems: 'center',
+    }}
+  >
             {flagUrl ? (
               <img
                 src={flagUrl}
