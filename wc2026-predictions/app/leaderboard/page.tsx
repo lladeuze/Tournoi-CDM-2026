@@ -123,10 +123,11 @@ export default function LeaderboardPage() {
     const leagueIds = normalizedLeagues.map((league) => league.id);
 
     if (leagueIds.length > 0) {
-      const { data: membersData, error: membersError } = await supabase
-        .from('league_members')
-        .select('league_id, user_id')
-        .in('league_id', leagueIds);
+      
+    const { data: membersData, error: membersError } = await supabase
+  .from('league_members_public')
+  .select('league_id, user_id')
+  .in('league_id', leagueIds);
 
       if (membersError) {
         setMessage(`Erreur membres ligues : ${membersError.message}`);
