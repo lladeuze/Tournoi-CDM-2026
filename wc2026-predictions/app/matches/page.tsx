@@ -12,6 +12,7 @@ type Match = {
   away_score: number | null;
   first_scorer: string | null;
   status: string;
+  match_label: string | null;
 };
 
 export default function MatchesPage() {
