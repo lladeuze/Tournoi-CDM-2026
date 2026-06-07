@@ -467,6 +467,53 @@ async function updateWinnerTeam() {
   {awayCode ? ` ${awayCode}` : ''}
 </h2>
 
+
+
+<div className="grid">
+  <div>
+    <label>Équipe domicile</label>
+
+    <select
+      value={match.home_team_id || ''}
+      onChange={(e) =>
+        editMatch(match.id, 'home_team_id', e.target.value)
+      }
+    >
+      <option value="">Sélectionner...</option>
+
+      {Object.values(teams).map((team) => (
+        <option key={team.id} value={team.id}>
+          {team.code} - {team.name}
+        </option>
+      ))}
+    </select>
+  </div>
+
+  <div>
+    <label>Équipe extérieure</label>
+
+    <select
+      value={match.away_team_id || ''}
+      onChange={(e) =>
+        editMatch(match.id, 'away_team_id', e.target.value)
+      }
+    >
+      <option value="">Sélectionner...</option>
+
+      {Object.values(teams).map((team) => (
+        <option key={team.id} value={team.id}>
+          {team.code} - {team.name}
+        </option>
+      ))}
+    </select>
+  </div>
+</div>
+
+                
+
+
+
+                
                 <div className="grid">
                   <div>
                     <label>Score {homeName}</label>
