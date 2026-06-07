@@ -154,6 +154,14 @@ export default function ProfilePage() {
       return;
     }
 
+    if (!profileData) {
+      setMessage(
+        "Profil introuvable. Ton compte existe, mais aucune ligne n'a été trouvée dans la table profiles."
+      );
+      setLoading(false);
+      return;
+    }
+
     if (leaderboardError) {
       setMessage(`Erreur classement : ${leaderboardError.message}`);
       setLoading(false);
@@ -166,8 +174,16 @@ export default function ProfilePage() {
       return;
     }
 
-    setProfile(profileData as Profile);
-    setUsername(profileData.username || '');
+    const currentProfile: Profile = {
+      id: profileData.id,
+      email: profileData.email,
+      username: profileData.username,
+      is_admin: profileData.is_admin,
+      created_at: profileData.created_at,
+    };
+
+    setProfile(currentProfile);
+    setUsername(currentProfile.username || '');
 
     const leaderboard = (leaderboardData || []) as LeaderboardRow[];
     const index = leaderboard.findIndex((row) => row.user_id === user.id);
