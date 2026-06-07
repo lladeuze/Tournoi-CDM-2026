@@ -111,7 +111,7 @@ export default function ProfilePage() {
         `
         )
         .eq('id', user.id)
-        .single(),
+        .maybeSingle(),
 
       supabase
         .from('leaderboard')
