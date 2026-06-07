@@ -42,6 +42,7 @@ export default function RootLayout({
               <Link href="/leaderboard">Classement</Link>
               <Link href="/profile">Profil</Link>
               <Link href="/admin">Admin</Link>
+              <Link href="/rules">Règlement</Link>
             </div>
 
             <Link href="/login">Connexion</Link>
