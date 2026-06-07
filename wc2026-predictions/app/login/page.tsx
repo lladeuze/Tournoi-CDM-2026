@@ -22,50 +22,43 @@ export default function LoginPage() {
     );
   }
 
-  async function signUp() {
-    setMessage('');
+async function signUp() {
+  setMessage('');
 
-    if (!email || !password) {
-      setMessage('Email et mot de passe obligatoires.');
-      return;
-    }
-
-    if (password.length < 6) {
-      setMessage('Le mot de passe doit contenir au moins 6 caractères.');
-      return;
-    }
-
-    setLoading(true);
-
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-    });
-
-    setLoading(false);
-
-    if (error) {
-      setMessage(error.message);
-      return;
-    }
-
-    if (data.user) {
-      const cleanUsername = username.trim() || email.split('@')[0];
-
-      const { error: profileError } = await supabase.from('profiles').upsert({
-        id: data.user.id,
-        email,
-        username: cleanUsername,
-      });
-
-      if (profileError) {
-        setMessage(`Compte créé, mais erreur profil : ${profileError.message}`);
-        return;
-      }
-    }
-
-    setMessage('Compte créé. Vérifie tes emails si Supabase demande une confirmation.');
+  if (!email || !password) {
+    setMessage('Email et mot de passe obligatoires.');
+    return;
   }
+
+  if (password.length < 6) {
+    setMessage('Le mot de passe doit contenir au moins 6 caractères.');
+    return;
+  }
+
+  const cleanEmail = email.trim().toLowerCase();
+  const cleanUsername = username.trim() || cleanEmail.split('@')[0];
+
+  setLoading(true);
+
+  const { error } = await supabase.auth.signUp({
+    email: cleanEmail,
+    password,
+    options: {
+      data: {
+        username: cleanUsername,
+      },
+    },
+  });
+
+  setLoading(false);
+
+  if (error) {
+    setMessage(error.message);
+    return;
+  }
+
+  setMessage('Compte créé. Vérifie tes emails si Supabase demande une confirmation.');
+}
 
   async function signIn() {
   setMessage('');
