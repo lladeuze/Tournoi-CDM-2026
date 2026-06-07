@@ -68,30 +68,48 @@ export default function LoginPage() {
   }
 
   async function signIn() {
-    setMessage('');
+  setMessage('');
 
-    if (!email || !password) {
-      setMessage('Email et mot de passe obligatoires.');
-      return;
-    }
-
-    setLoading(true);
-
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    setLoading(false);
-
-    if (error) {
-      setMessage(error.message);
-      return;
-    }
-
-    setMessage('Connecté.');
-    window.location.href = '/predictions';
+  if (!email || !password) {
+    setMessage('Email/pseudo et mot de passe obligatoires.');
+    return;
   }
+
+  setLoading(true);
+
+  let loginEmail = email.trim();
+  const isEmail = loginEmail.includes('@');
+
+  if (!isEmail) {
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('email')
+      .ilike('username', loginEmail)
+      .single();
+
+    if (profileError || !profile?.email) {
+      setLoading(false);
+      setMessage('Pseudo introuvable.');
+      return;
+    }
+
+    loginEmail = profile.email;
+  }
+
+  const { error } = await supabase.auth.signInWithPassword({
+    email: loginEmail,
+    password,
+  });
+
+  setLoading(false);
+
+  if (error) {
+    setMessage(error.message);
+    return;
+  }
+
+  window.location.href = '/predictions';
+}
 
   async function resetPassword() {
     setMessage('');
