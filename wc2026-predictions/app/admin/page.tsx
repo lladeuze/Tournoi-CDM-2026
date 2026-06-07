@@ -443,11 +443,29 @@ async function updateWinnerTeam() {
                   {new Date(match.kickoff_at).toLocaleString('fr-BE')}
                 </p>
 
-                <h2>
-                  {homeCode ? `${homeCode} ` : ''}
-                  {homeName} - {awayName}
-                  {awayCode ? ` ${awayCode}` : ''}
-                </h2>
+                {match.match_label && (
+  <div
+    style={{
+      display: 'inline-block',
+      marginBottom: 10,
+      padding: '6px 14px',
+      borderRadius: 999,
+      background: 'rgba(94,234,212,0.15)',
+      border: '1px solid rgba(94,234,212,0.3)',
+      color: '#5eead4',
+      fontWeight: 800,
+      fontSize: '0.9rem',
+    }}
+  >
+    🏆 {match.match_label}
+  </div>
+)}
+
+<h2>
+  {homeCode ? `${homeCode} ` : ''}
+  {homeName} - {awayName}
+  {awayCode ? ` ${awayCode}` : ''}
+</h2>
 
                 <div className="grid">
                   <div>
