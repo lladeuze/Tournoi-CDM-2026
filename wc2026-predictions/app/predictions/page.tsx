@@ -28,6 +28,7 @@ type Match = {
   kickoff_at: string;
   status: string;
   phase: string;
+  match_label: string | null;
 };
 
 type Prediction = {
