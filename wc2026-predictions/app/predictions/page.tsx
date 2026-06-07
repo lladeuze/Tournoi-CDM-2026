@@ -709,16 +709,16 @@ function getFlagUrl(team: Team | null, fallbackName: string) {
               <option value="">Aucune sélection</option>
 
               {match.home_team_id && (
-                <option value={match.home_team_id}>
-                  {getTeamFlag(homeTeam, match.home_team)} {homeTeam?.name || match.home_team}
-                </option>
-              )}
+  <option value={match.home_team_id}>
+    {homeTeam?.name || match.home_team}
+  </option>
+)}
 
-              {match.away_team_id && (
-                <option value={match.away_team_id}>
-                  {getTeamFlag(awayTeam, match.away_team)} {awayTeam?.name || match.away_team}
-                </option>
-              )}
+{match.away_team_id && (
+  <option value={match.away_team_id}>
+    {awayTeam?.name || match.away_team}
+  </option>
+)}
             </select>
           </div>
 
