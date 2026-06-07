@@ -14,8 +14,28 @@ type LeaderboardRow = {
   champion_bonus_points: number;
 };
 
+type League = {
+  id: string;
+  name: string;
+  code: string;
+};
+
+type LeagueMemberRow = {
+  league_id: string;
+  user_id: string;
+};
+
+type MyLeagueRow = {
+  league_id: string;
+  leagues: League | League[] | null;
+};
+
 export default function LeaderboardPage() {
   const [rows, setRows] = useState<LeaderboardRow[]>([]);
+  const [leagues, setLeagues] = useState<League[]>([]);
+  const [leagueMembers, setLeagueMembers] = useState<LeagueMemberRow[]>([]);
+  const [selectedLeagueId, setSelectedLeagueId] = useState('global');
+
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
 
@@ -27,25 +47,118 @@ export default function LeaderboardPage() {
     setLoading(true);
     setMessage('');
 
-    const { data, error } = await supabase
-      .from('leaderboard')
-      .select('*')
-      .order('total_points', { ascending: false })
-      .order('exact_scores_count', { ascending: false })
-      .order('correct_results_count', { ascending: false });
+    const { data: userData, error: userError } = await supabase.auth.getUser();
 
-    if (error) {
-      setMessage(`Erreur classement : ${error.message}`);
+    if (userError) {
+      setMessage(`Erreur utilisateur : ${userError.message}`);
       setLoading(false);
       return;
     }
 
-    setRows(data || []);
+    const user = userData.user;
+
+    if (!user) {
+      setMessage('Connecte-toi pour voir le classement.');
+      setLoading(false);
+      return;
+    }
+
+    const [
+      { data: leaderboardData, error: leaderboardError },
+      { data: myLeaguesData, error: myLeaguesError },
+    ] = await Promise.all([
+      supabase
+        .from('leaderboard')
+        .select('*')
+        .order('total_points', { ascending: false })
+        .order('exact_scores_count', { ascending: false })
+        .order('correct_results_count', { ascending: false }),
+
+      supabase
+        .from('league_members')
+        .select(
+          `
+          league_id,
+          leagues (
+            id,
+            name,
+            code
+          )
+        `
+        )
+        .eq('user_id', user.id),
+    ]);
+
+    if (leaderboardError) {
+      setMessage(`Erreur classement : ${leaderboardError.message}`);
+      setLoading(false);
+      return;
+    }
+
+    if (myLeaguesError) {
+      setMessage(`Erreur ligues : ${myLeaguesError.message}`);
+      setLoading(false);
+      return;
+    }
+
+    const normalizedLeagues: League[] = ((myLeaguesData || []) as MyLeagueRow[])
+      .map((row) => {
+        if (Array.isArray(row.leagues)) {
+          return row.leagues[0] || null;
+        }
+
+        return row.leagues;
+      })
+      .filter(Boolean) as League[];
+
+    setRows((leaderboardData || []) as LeaderboardRow[]);
+    setLeagues(normalizedLeagues);
+
+    if (normalizedLeagues.length > 0) {
+      setSelectedLeagueId(normalizedLeagues[0].id);
+    } else {
+      setSelectedLeagueId('global');
+    }
+
+    const leagueIds = normalizedLeagues.map((league) => league.id);
+
+    if (leagueIds.length > 0) {
+      const { data: membersData, error: membersError } = await supabase
+        .from('league_members')
+        .select('league_id, user_id')
+        .in('league_id', leagueIds);
+
+      if (membersError) {
+        setMessage(`Erreur membres ligues : ${membersError.message}`);
+        setLoading(false);
+        return;
+      }
+
+      setLeagueMembers((membersData || []) as LeagueMemberRow[]);
+    } else {
+      setLeagueMembers([]);
+    }
+
     setLoading(false);
   }
 
-  const podium = useMemo(() => rows.slice(0, 3), [rows]);
-  const rest = useMemo(() => rows.slice(3), [rows]);
+  const filteredRows = useMemo(() => {
+    if (selectedLeagueId === 'global') return rows;
+
+    const allowedUserIds = new Set(
+      leagueMembers
+        .filter((member) => member.league_id === selectedLeagueId)
+        .map((member) => member.user_id)
+    );
+
+    return rows.filter((row) => allowedUserIds.has(row.user_id));
+  }, [rows, leagueMembers, selectedLeagueId]);
+
+  const selectedLeague = useMemo(() => {
+    return leagues.find((league) => league.id === selectedLeagueId) || null;
+  }, [leagues, selectedLeagueId]);
+
+  const podium = useMemo(() => filteredRows.slice(0, 3), [filteredRows]);
 
   function medal(index: number) {
     if (index === 0) return '🥇';
@@ -56,14 +169,46 @@ export default function LeaderboardPage() {
 
   return (
     <main className="container">
-      <h1>🏆 Classement général</h1>
+      <h1>
+        🏆{' '}
+        {selectedLeagueId === 'global'
+          ? 'Classement global'
+          : `Classement — ${selectedLeague?.name || 'Ligue'}`}
+      </h1>
 
       {message && <p className="error">{message}</p>}
       {loading && <p className="small">Chargement du classement...</p>}
 
-      {!loading && rows.length === 0 && (
+      {!loading && (
         <div className="card">
-          <p>Aucun classement disponible pour le moment.</p>
+          <h2>Filtrer le classement</h2>
+
+          <label>Ligue</label>
+
+          <select
+            value={selectedLeagueId}
+            onChange={(e) => setSelectedLeagueId(e.target.value)}
+          >
+            {leagues.map((league) => (
+              <option key={league.id} value={league.id}>
+                🏟️ {league.name}
+              </option>
+            ))}
+
+            <option value="global">🌍 Classement global</option>
+          </select>
+
+          {selectedLeagueId !== 'global' && selectedLeague && (
+            <p className="small" style={{ marginTop: 10 }}>
+              Code de la ligue : <strong>{selectedLeague.code}</strong>
+            </p>
+          )}
+        </div>
+      )}
+
+      {!loading && filteredRows.length === 0 && (
+        <div className="card">
+          <p>Aucun classement disponible pour cette sélection.</p>
         </div>
       )}
 
@@ -98,13 +243,9 @@ export default function LeaderboardPage() {
               >
                 <div style={{ fontSize: 44 }}>{medal(index)}</div>
 
-                <p className="small">
-                  #{index + 1}
-                </p>
+                <p className="small">#{index + 1}</p>
 
-                <h2 style={{ marginBottom: 8 }}>
-                  {player.username}
-                </h2>
+                <h2 style={{ marginBottom: 8 }}>{player.username}</h2>
 
                 <p
                   style={{
@@ -115,6 +256,12 @@ export default function LeaderboardPage() {
                 >
                   {player.total_points} pts
                 </p>
+
+                {player.champion_bonus_points > 0 && (
+                  <p className="small" style={{ marginTop: 8 }}>
+                    🏆 Bonus champion : +{player.champion_bonus_points}
+                  </p>
+                )}
 
                 <p className="small" style={{ marginTop: 12 }}>
                   🎯 {player.exact_scores_count} score(s) exact(s)
@@ -127,7 +274,7 @@ export default function LeaderboardPage() {
         </section>
       )}
 
-      {!loading && rows.length > 0 && (
+      {!loading && filteredRows.length > 0 && (
         <section className="card">
           <h2>Classement complet</h2>
 
@@ -144,16 +291,16 @@ export default function LeaderboardPage() {
                   <th style={{ padding: 10 }}>Rang</th>
                   <th style={{ padding: 10 }}>Joueur</th>
                   <th style={{ padding: 10 }}>Points</th>
+                  <th style={{ padding: 10 }}>Champion</th>
                   <th style={{ padding: 10 }}>Scores exacts</th>
                   <th style={{ padding: 10 }}>Bons résultats</th>
                   <th style={{ padding: 10 }}>Buteurs trouvés</th>
                   <th style={{ padding: 10 }}>Pronos</th>
-                  <th style={{ padding: 10 }}>Champion</th>
                 </tr>
               </thead>
 
               <tbody>
-                {rows.map((player, index) => (
+                {filteredRows.map((player, index) => (
                   <tr
                     key={player.user_id}
                     style={{
@@ -172,6 +319,10 @@ export default function LeaderboardPage() {
                       {player.total_points}
                     </td>
 
+                    <td style={{ padding: 10, fontWeight: 800 }}>
+                      +{player.champion_bonus_points ?? 0}
+                    </td>
+
                     <td style={{ padding: 10 }}>
                       {player.exact_scores_count}
                     </td>
@@ -187,11 +338,6 @@ export default function LeaderboardPage() {
                     <td style={{ padding: 10 }}>
                       {player.predictions_count}
                     </td>
-                    
-                    <td style={{ padding: 10 }}>
-                      +{player.champion_bonus_points ?? 0}
-                    </td>
-                  
                   </tr>
                 ))}
               </tbody>
