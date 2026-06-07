@@ -316,6 +316,8 @@ async function updateWinnerTeam() {
         first_scoring_team_id: match.first_scoring_team_id,
         first_scorer_id: match.first_scorer_id,
         status: match.status,
+        home_team_id: match.home_team_id,
+        away_team_id: match.away_team_id,
       })
       .eq('id', match.id);
 
