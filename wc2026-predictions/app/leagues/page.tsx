@@ -208,7 +208,7 @@ export default function LeaguesPage() {
           <input
             value={newLeagueName}
             onChange={(e) => setNewLeagueName(e.target.value)}
-            placeholder="Ex : Collègues EASI"
+            placeholder="Ex : CDM 2026 Contest"
           />
 
           <button
@@ -232,7 +232,7 @@ export default function LeaguesPage() {
           <input
             value={joinCode}
             onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-            placeholder="Ex : EASI2026"
+            placeholder="Ex : CDM2026"
           />
 
           <button type="button" onClick={joinLeague} style={{ marginTop: 12 }}>
