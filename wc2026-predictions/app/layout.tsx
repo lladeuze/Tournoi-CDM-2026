@@ -4,12 +4,15 @@ import Link from 'next/link';
 export const metadata = {
   title: 'WC 2026 Predictions',
   description: 'Jeu de pronostics entre amis pour la Coupe du Monde 2026',
-  themeColor: '#07111f',
   appleWebApp: {
     capable: true,
     title: 'WC 2026',
     statusBarStyle: 'black-translucent',
   },
+};
+
+export const viewport = {
+  themeColor: '#07111f',
 };
 
 export default function RootLayout({
