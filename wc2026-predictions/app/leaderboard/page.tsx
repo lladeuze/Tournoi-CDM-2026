@@ -75,7 +75,7 @@ export default function LeaderboardPage() {
         .order('correct_results_count', { ascending: false }),
 
       supabase
-        .from('league_members')
+        .from('league_members_public')
         .select(
           `
           league_id,
