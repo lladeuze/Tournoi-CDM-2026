@@ -194,13 +194,13 @@ export default function LoginPage() {
           </>
         )}
 
-        <label>Email</label>
-        <input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="email@example.com"
-        />
+        <label>Email ou pseudo</label>
+<input
+  type="text"
+  value={email}
+  onChange={(e) => setEmail(e.target.value)}
+  placeholder="email@example.com ou Louis"
+/>
 
         {mode !== 'reset' && (
           <>
