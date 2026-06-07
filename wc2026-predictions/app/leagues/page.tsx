@@ -80,19 +80,16 @@ export default function LeaguesPage() {
     setLeagues(normalizedLeagues);
   }
 
-  function generateLeagueCode(name: string) {
-    const base = name
-      .trim()
-      .toUpperCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^A-Z0-9]/g, '')
-      .slice(0, 8);
+  function generateLeagueCode() {
+  const array = new Uint8Array(8);
+  crypto.getRandomValues(array);
 
-    const random = Math.floor(1000 + Math.random() * 9000);
-
-    return `${base || 'LIGUE'}${random}`;
-  }
+  return Array.from(array)
+    .map((byte) => byte.toString(36).padStart(2, '0'))
+    .join('')
+    .toUpperCase()
+    .slice(0, 16);
+}
 
   async function createLeague() {
     if (!userId) return;
@@ -104,7 +101,7 @@ export default function LeaguesPage() {
       return;
     }
 
-    const code = generateLeagueCode(cleanName);
+    const code = generateLeagueCode();
 
     const { data: leagueData, error: leagueError } = await supabase
       .from('leagues')
