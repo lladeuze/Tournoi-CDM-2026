@@ -31,6 +31,7 @@ type Match = {
   first_scorer_id: string | null;
   status: 'scheduled' | 'live' | 'finished';
   phase: string;
+  match_label: string | null;
 };
 
 type TournamentSettings = {
