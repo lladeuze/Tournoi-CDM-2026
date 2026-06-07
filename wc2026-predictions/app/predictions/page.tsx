@@ -590,6 +590,28 @@ function getFlagUrl(team: Team | null, fallbackName: string) {
           {new Date(match.kickoff_at).toLocaleString('fr-BE')}
         </p>
 
+
+        {match.match_label && (
+  <div
+    style={{
+      display: 'inline-block',
+      margin: '0 auto 14px auto',
+      padding: '6px 14px',
+      borderRadius: 999,
+      background: 'rgba(94,234,212,0.15)',
+      border: '1px solid rgba(94,234,212,0.3)',
+      color: '#5eead4',
+      fontWeight: 800,
+      fontSize: '0.9rem',
+    }}
+  >
+    🏆 {match.match_label}
+  </div>
+)}
+
+
+
+        
         <div className="match-header">
   <div className="team-side">
     <div className="team-flag">
