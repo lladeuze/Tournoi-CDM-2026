@@ -209,8 +209,8 @@ export default function MatchesPage() {
           <option value="group_j1">Poules J1</option>
           <option value="group_j2">Poules J2</option>
           <option value="group_j3">Poules J3</option>
-          <option value="round_of_32">32es de finale</option>
-          <option value="round_of_16">16es de finale</option>
+          <option value="round_of_32">16es de finale</option>
+          <option value="round_of_16">8es de finale</option>
           <option value="quarter">Quarts de finale</option>
           <option value="semi">Demi-finales</option>
           <option value="final">Finale</option>
