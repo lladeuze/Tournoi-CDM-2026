@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 
 type Team = {
@@ -22,6 +22,18 @@ type Match = {
   first_scorer: string | null;
   status: string;
   match_label: string | null;
+  phase: string;
+};
+
+const phaseLabels: Record<string, string> = {
+  group_j1: 'Poules J1',
+  group_j2: 'Poules J2',
+  group_j3: 'Poules J3',
+  round_of_32: '32es de finale',
+  round_of_16: '16es de finale',
+  quarter: 'Quarts de finale',
+  semi: 'Demi-finales',
+  final: 'Finale',
 };
 
 const flagsByCode: Record<string, string> = {
@@ -85,15 +97,19 @@ function getFlagUrl(team: Team | null) {
 export default function MatchesPage() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [teams, setTeams] = useState<Record<string, Team>>({});
+  const [phaseFilter, setPhaseFilter] = useState('all');
+  const [message, setMessage] = useState('');
 
   useEffect(() => {
     load();
   }, []);
 
   async function load() {
+    setMessage('');
+
     const [
-      { data: matchesData },
-      { data: teamsData },
+      { data: matchesData, error: matchesError },
+      { data: teamsData, error: teamsError },
     ] = await Promise.all([
       supabase
         .from('matches')
@@ -106,6 +122,16 @@ export default function MatchesPage() {
         .order('name', { ascending: true }),
     ]);
 
+    if (matchesError) {
+      setMessage(`Erreur matchs : ${matchesError.message}`);
+      return;
+    }
+
+    if (teamsError) {
+      setMessage(`Erreur équipes : ${teamsError.message}`);
+      return;
+    }
+
     const teamsById: Record<string, Team> = {};
 
     (teamsData || []).forEach((team: Team) => {
@@ -115,6 +141,12 @@ export default function MatchesPage() {
     setTeams(teamsById);
     setMatches((matchesData || []) as Match[]);
   }
+
+  const filteredMatches = useMemo(() => {
+    if (phaseFilter === 'all') return matches;
+
+    return matches.filter((match) => match.phase === phaseFilter);
+  }, [matches, phaseFilter]);
 
   function getTeam(teamId: string | null) {
     if (!teamId) return null;
@@ -153,9 +185,7 @@ export default function MatchesPage() {
           {team?.code || '---'}
         </div>
 
-        <div className="team-code">
-          {team?.name || fallbackName}
-        </div>
+        <div className="team-code">{team?.name || fallbackName}</div>
       </div>
     );
   }
@@ -164,53 +194,83 @@ export default function MatchesPage() {
     <main className="container">
       <h1>Matchs</h1>
 
-      <div style={{ display: 'grid', gap: 16 }}>
-        {matches.map((match) => {
-          const homeTeam = getTeam(match.home_team_id);
-          const awayTeam = getTeam(match.away_team_id);
+      {message && <p className="error">{message}</p>}
 
-          return (
-            <div className="card" key={match.id}>
-              <p className="small">
-                {new Date(match.kickoff_at).toLocaleString('fr-BE')}
-              </p>
+      <div className="card">
+        <h2>Filtres</h2>
 
-              <div className="match-header">
-                {renderTeam(homeTeam, match.home_team)}
+        <label>Phase</label>
 
-                <div
-                  style={{
-                    fontWeight: 900,
-                    fontSize: 24,
-                    color: '#5eead4',
-                  }}
-                >
-                  VS
+        <select
+          value={phaseFilter}
+          onChange={(event) => setPhaseFilter(event.target.value)}
+        >
+          <option value="all">Toutes les phases</option>
+          <option value="group_j1">Poules J1</option>
+          <option value="group_j2">Poules J2</option>
+          <option value="group_j3">Poules J3</option>
+          <option value="round_of_32">32es de finale</option>
+          <option value="round_of_16">16es de finale</option>
+          <option value="quarter">Quarts de finale</option>
+          <option value="semi">Demi-finales</option>
+          <option value="final">Finale</option>
+        </select>
+      </div>
+
+      {filteredMatches.length === 0 ? (
+        <div className="card">
+          <p>Aucun match disponible pour cette phase.</p>
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gap: 16 }}>
+          {filteredMatches.map((match) => {
+            const homeTeam = getTeam(match.home_team_id);
+            const awayTeam = getTeam(match.away_team_id);
+
+            return (
+              <div className="card" key={match.id}>
+                <p className="small">
+                  {phaseLabels[match.phase] || match.phase} ·{' '}
+                  {new Date(match.kickoff_at).toLocaleString('fr-BE')}
+                </p>
+
+                <div className="match-header">
+                  {renderTeam(homeTeam, match.home_team)}
+
+                  <div
+                    style={{
+                      fontWeight: 900,
+                      fontSize: 24,
+                      color: '#5eead4',
+                    }}
+                  >
+                    VS
+                  </div>
+
+                  {renderTeam(awayTeam, match.away_team)}
                 </div>
 
-                {renderTeam(awayTeam, match.away_team)}
+                <p
+                  style={{
+                    fontSize: 24,
+                    fontWeight: 900,
+                    textAlign: 'center',
+                    marginTop: 16,
+                  }}
+                >
+                  Score : {match.home_score ?? '-'} - {match.away_score ?? '-'}
+                </p>
+
+                <p className="small">
+                  Premier buteur : {match.first_scorer || '-'}
+                </p>
+
+                <span className="badge">{match.status}</span>
               </div>
-
-              <p
-                style={{
-                  fontSize: 24,
-                  fontWeight: 900,
-                  textAlign: 'center',
-                  marginTop: 16,
-                }}
-              >
-                Score : {match.home_score ?? '-'} - {match.away_score ?? '-'}
-              </p>
-
-              <p className="small">
-                Premier buteur : {match.first_scorer || '-'}
-              </p>
-
-              <span className="badge">{match.status}</span>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </main>
   );
 }
