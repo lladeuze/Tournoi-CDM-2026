@@ -137,6 +137,14 @@ function formatDateTitle(date: Date) {
   });
 }
 
+function getPositionLabel(position: string | null) {
+  if (position === 'ATT') return '⚽ ATT';
+  if (position === 'MID') return '🎯 MID';
+  if (position === 'DEF') return '🛡 DEF';
+  if (position === 'GK') return '🧤 GK';
+  return '❔';
+}
+
 export default function PredictionsPage() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [teams, setTeams] = useState<Record<string, Team>>({});
@@ -822,7 +830,7 @@ function getFlagUrl(team: Team | null, fallbackName: string) {
                           cursor: 'pointer',
                         }}
                       >
-                        {player.name} — {getPlayerAbr(player)}
+                        {getPositionLabel(player.position)} · {player.name} — {getPlayerAbr(player)}
                       </button>
                     ))}
                   </div>
