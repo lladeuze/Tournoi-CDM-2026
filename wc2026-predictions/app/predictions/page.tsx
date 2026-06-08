@@ -395,12 +395,24 @@ function getFlagUrl(team: Team | null, fallbackName: string) {
     }
 
     const sortedPlayers = (data || []).sort((a: Player, b: Player) => {
-      const teamA = getPlayerAbr(a);
-      const teamB = getPlayerAbr(b);
+  const orderA = a.position_order ?? 99;
+  const orderB = b.position_order ?? 99;
 
-      if (teamA !== teamB) return teamA.localeCompare(teamB);
-      return a.name.localeCompare(b.name);
-    });
+  if (orderA !== orderB) {
+    return orderA - orderB;
+  }
+
+  const teamA = getPlayerAbr(a);
+  const teamB = getPlayerAbr(b);
+
+  if (teamA !== teamB) {
+    return teamA.localeCompare(teamB);
+  }
+
+  return a.name.localeCompare(b.name);
+});
+
+    
 
     setPlayersByMatch((current) => ({
       ...current,
