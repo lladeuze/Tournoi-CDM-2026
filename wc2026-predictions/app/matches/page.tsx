@@ -19,7 +19,7 @@ type Match = {
   kickoff_at: string;
   home_score: number | null;
   away_score: number | null;
-  first_scoring_team: string | null;
+  first_scoring_team_id: string | null;
   first_scorer: string | null;
   status: string;
   match_label: string | null;
@@ -159,7 +159,6 @@ export default function MatchesPage() {
 
   const filteredMatches = useMemo(() => {
     if (phaseFilter === 'all') return matches;
-
     return matches.filter((match) => match.phase === phaseFilter);
   }, [matches, phaseFilter]);
 
@@ -168,48 +167,22 @@ export default function MatchesPage() {
     return teams[teamId] || null;
   }
 
-  function getTeamLabelFromValue(value: string | null, match: Match) {
-    if (!value) return '-';
+  function getFirstScoringTeam(match: Match) {
+    if (!match.first_scoring_team_id) return '-';
 
-    const cleanedValue = value.trim();
-    const upperValue = cleanedValue.toUpperCase();
+    const firstTeam = getTeam(match.first_scoring_team_id);
 
-    const homeTeam = getTeam(match.home_team_id);
-    const awayTeam = getTeam(match.away_team_id);
+    if (firstTeam) return firstTeam.name;
 
-    if (match.home_team_id && cleanedValue === match.home_team_id) {
-      return homeTeam?.name || match.home_team;
-    }
-
-    if (match.away_team_id && cleanedValue === match.away_team_id) {
-      return awayTeam?.name || match.away_team;
-    }
-
-    if (homeTeam?.code?.toUpperCase() === upperValue) {
-      return homeTeam.name;
-    }
-
-    if (awayTeam?.code?.toUpperCase() === upperValue) {
-      return awayTeam.name;
-    }
-
-    if (homeTeam?.name?.toUpperCase() === upperValue) {
-      return homeTeam.name;
-    }
-
-    if (awayTeam?.name?.toUpperCase() === upperValue) {
-      return awayTeam.name;
-    }
-
-    if (match.home_team.toUpperCase() === upperValue) {
+    if (match.first_scoring_team_id === match.home_team_id) {
       return match.home_team;
     }
 
-    if (match.away_team.toUpperCase() === upperValue) {
+    if (match.first_scoring_team_id === match.away_team_id) {
       return match.away_team;
     }
 
-    return cleanedValue;
+    return '-';
   }
 
   function renderTeam(team: Team | null, fallbackName: string) {
@@ -321,8 +294,7 @@ export default function MatchesPage() {
                 </p>
 
                 <p className="small">
-                  Première équipe à marquer :{' '}
-                  {getTeamLabelFromValue(match.first_scoring_team, match)}
+                  Première équipe à marquer : {getFirstScoringTeam(match)}
                 </p>
 
                 <p className="small">
