@@ -425,6 +425,8 @@ async function updateWinnerTeam() {
   )}
 </div>
 
+          <TournamentAwards />
+
           {filteredMatches.map((match) => {
             const homeName = getTeamName(match.home_team_id, match.home_team);
             const awayName = getTeamName(match.away_team_id, match.away_team);
