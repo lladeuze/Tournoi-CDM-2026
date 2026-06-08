@@ -11,6 +11,12 @@ type Team = {
   logo_url: string | null;
 };
 
+type League = {
+  id: string;
+  name: string;
+  code: string | null;
+};
+
 type Player = {
   id: string;
   team_id: string | null;
@@ -43,6 +49,18 @@ type Prediction = {
   double_bonus: boolean;
   points: number;
 };
+
+type OtherPrediction = {
+  user_id: string;
+  username: string;
+  predicted_home_score: number | null;
+  predicted_away_score: number | null;
+  predicted_first_scoring_team_id: string | null;
+  predicted_first_scorer: string | null;
+  predicted_first_scorer_id: string | null;
+};
+
+type ViewMode = 'upcoming' | 'history';
 
 const phaseLabels: Record<string, string> = {
   group_j1: 'Poules J1',
@@ -115,9 +133,6 @@ const flagsByCode: Record<string, string> = {
   PAN: 'pa',
 };
 
-
-type ViewMode = 'upcoming' | 'history';
-
 function toDateKey(date: Date) {
   return date.toISOString().slice(0, 10);
 }
@@ -159,6 +174,12 @@ export default function PredictionsPage() {
   const [playerSearchByMatch, setPlayerSearchByMatch] = useState<Record<string, string>>({});
   const [openScorerForMatch, setOpenScorerForMatch] = useState<string | null>(null);
 
+  const [leagues, setLeagues] = useState<League[]>([]);
+  const [selectedLeagueId, setSelectedLeagueId] = useState('');
+  const [openedPredictionsMatchId, setOpenedPredictionsMatchId] = useState<string | null>(null);
+  const [otherPredictions, setOtherPredictions] = useState<OtherPrediction[]>([]);
+  const [loadingOtherPredictions, setLoadingOtherPredictions] = useState(false);
+
   useEffect(() => {
     load();
   }, []);
@@ -178,18 +199,31 @@ export default function PredictionsPage() {
       { data: matchesData, error: matchesError },
       { data: predictionsData, error: predictionsError },
       { data: teamsData, error: teamsError },
+      { data: leagueMembersData, error: leaguesError },
     ] = await Promise.all([
       supabase.from('matches').select('*').order('kickoff_at', { ascending: true }),
       supabase.from('predictions').select('*').eq('user_id', user.id),
       supabase.from('teams').select('*').order('name', { ascending: true }),
+      supabase
+        .from('league_members')
+        .select(`
+          league_id,
+          leagues (
+            id,
+            name,
+            code
+          )
+        `)
+        .eq('user_id', user.id),
     ]);
 
     if (matchesError) return setMessage(`Erreur matchs: ${matchesError.message}`);
-if (predictionsError) return setMessage(`Erreur pronostics: ${predictionsError.message}`);
-if (teamsError) return setMessage(`Erreur équipes: ${teamsError.message}`);
+    if (predictionsError) return setMessage(`Erreur pronostics: ${predictionsError.message}`);
+    if (teamsError) return setMessage(`Erreur équipes: ${teamsError.message}`);
+    if (leaguesError) return setMessage(`Erreur ligues: ${leaguesError.message}`);
 
-const loadedMatches = matchesData || [];
-setMatches(loadedMatches);
+    const loadedMatches = matchesData || [];
+    setMatches(loadedMatches);
 
     const teamsById: Record<string, Team> = {};
     (teamsData || []).forEach((team: Team) => {
@@ -203,24 +237,33 @@ setMatches(loadedMatches);
     });
     setPredictions(byMatch);
 
+    const myLeagues =
+      leagueMembersData
+        ?.map((row: any) => row.leagues)
+        .filter(Boolean) || [];
+
+    setLeagues(myLeagues);
+
+    if (myLeagues.length > 0) {
+      setSelectedLeagueId((current) => current || myLeagues[0].id);
+    }
+
     setSelectedDate((currentDate) => {
-  const currentDateKey = toDateKey(currentDate);
+      const currentDateKey = toDateKey(currentDate);
 
-  const stillHasMatchesOnCurrentDate = loadedMatches.some((match) => {
-    return (
-      match.status !== 'finished' &&
-      toDateKey(new Date(match.kickoff_at)) === currentDateKey
-    );
-  });
+      const stillHasMatchesOnCurrentDate = loadedMatches.some((match) => {
+        return (
+          match.status !== 'finished' &&
+          toDateKey(new Date(match.kickoff_at)) === currentDateKey
+        );
+      });
 
-  if (stillHasMatchesOnCurrentDate) {
-    return currentDate;
-  }
+      if (stillHasMatchesOnCurrentDate) return currentDate;
 
-  const firstUpcoming = loadedMatches.find((match) => match.status !== 'finished');
+      const firstUpcoming = loadedMatches.find((match) => match.status !== 'finished');
 
-  return firstUpcoming ? new Date(firstUpcoming.kickoff_at) : currentDate;
-});
+      return firstUpcoming ? new Date(firstUpcoming.kickoff_at) : currentDate;
+    });
   }
 
   const upcomingMatches = useMemo(() => {
@@ -263,84 +306,78 @@ setMatches(loadedMatches);
   }
 
   function getTeamFlagByCode(code?: string | null) {
-  const normalizedCode = code?.trim().toUpperCase();
+    const normalizedCode = code?.trim().toUpperCase();
 
-  if (!normalizedCode) return '🏳️';
+    if (!normalizedCode) return '🏳️';
 
-  return flagsByCode[normalizedCode] || '🏳️';
-}
-
-function getTeamCodeByName(teamName: string) {
-  const normalizedName = teamName.trim().toLowerCase();
-
-  const codeByName: Record<string, string> = {
-    'mexique': 'MEX',
-    'afrique du sud': 'RSA',
-    'corée du sud': 'KOR',
-    'tchéquie': 'CZE',
-    'canada': 'CAN',
-    'bosnie-herzégovine': 'BIH',
-    'qatar': 'QAT',
-    'suisse': 'SUI',
-    'brésil': 'BRA',
-    'maroc': 'MAR',
-    'haïti': 'HAI',
-    'écosse': 'SCO',
-    'états-unis': 'USA',
-    'paraguay': 'PAR',
-    'australie': 'AUS',
-    'turquie': 'TUR',
-    'allemagne': 'GER',
-    'curaçao': 'CUW',
-    "côte d'ivoire": 'CIV',
-    'équateur': 'ECU',
-    'pays-bas': 'NED',
-    'japon': 'JPN',
-    'suède': 'SWE',
-    'tunisie': 'TUN',
-    'belgique': 'BEL',
-    'égypte': 'EGY',
-    'iran': 'IRN',
-    'nouvelle-zélande': 'NZL',
-    'espagne': 'ESP',
-    'cap-vert': 'CPV',
-    'arabie saoudite': 'KSA',
-    'uruguay': 'URU',
-    'france': 'FRA',
-    'sénégal': 'SEN',
-    'irak': 'IRQ',
-    'norvège': 'NOR',
-    'argentine': 'ARG',
-    'algérie': 'ALG',
-    'autriche': 'AUT',
-    'jordanie': 'JOR',
-    'portugal': 'POR',
-    'rd congo': 'COD',
-    'ouzbékistan': 'UZB',
-    'ouzbekistan': 'UZB',
-    'colombie': 'COL',
-    'angleterre': 'ENG',
-    'croatie': 'CRO',
-    'ghana': 'GHA',
-    'panama': 'PAN',
-  };
-
-  return codeByName[normalizedName] || null;
-}
-
-function getTeamFlag(team: Team | null, fallbackName: string) {
-  if (team?.code) {
-    return getTeamFlagByCode(team.code);
+    return flagsByCode[normalizedCode] || '🏳️';
   }
 
-  return getTeamFlagByCode(getTeamCodeByName(fallbackName));
-}
-function getFlagUrl(team: Team | null, fallbackName: string) {
-  const code = team?.code || getTeamCodeByName(fallbackName);
-  const flagCode = code ? flagsByCode[code.trim().toUpperCase()] : null;
+  function getTeamCodeByName(teamName: string) {
+    const normalizedName = teamName.trim().toLowerCase();
 
-  return flagCode ? `https://flagcdn.com/w160/${flagCode}.png` : null;
-}
+    const codeByName: Record<string, string> = {
+      'mexique': 'MEX',
+      'afrique du sud': 'RSA',
+      'corée du sud': 'KOR',
+      'tchéquie': 'CZE',
+      'canada': 'CAN',
+      'bosnie-herzégovine': 'BIH',
+      'qatar': 'QAT',
+      'suisse': 'SUI',
+      'brésil': 'BRA',
+      'maroc': 'MAR',
+      'haïti': 'HAI',
+      'écosse': 'SCO',
+      'états-unis': 'USA',
+      'paraguay': 'PAR',
+      'australie': 'AUS',
+      'turquie': 'TUR',
+      'allemagne': 'GER',
+      'curaçao': 'CUW',
+      "côte d'ivoire": 'CIV',
+      'équateur': 'ECU',
+      'pays-bas': 'NED',
+      'japon': 'JPN',
+      'suède': 'SWE',
+      'tunisie': 'TUN',
+      'belgique': 'BEL',
+      'égypte': 'EGY',
+      'iran': 'IRN',
+      'nouvelle-zélande': 'NZL',
+      'espagne': 'ESP',
+      'cap-vert': 'CPV',
+      'arabie saoudite': 'KSA',
+      'uruguay': 'URU',
+      'france': 'FRA',
+      'sénégal': 'SEN',
+      'irak': 'IRQ',
+      'norvège': 'NOR',
+      'argentine': 'ARG',
+      'algérie': 'ALG',
+      'autriche': 'AUT',
+      'jordanie': 'JOR',
+      'portugal': 'POR',
+      'rd congo': 'COD',
+      'ouzbékistan': 'UZB',
+      'ouzbekistan': 'UZB',
+      'colombie': 'COL',
+      'angleterre': 'ENG',
+      'croatie': 'CRO',
+      'ghana': 'GHA',
+      'panama': 'PAN',
+    };
+
+    return codeByName[normalizedName] || null;
+  }
+
+  function getFlagUrl(team: Team | null, fallbackName: string) {
+    const code = team?.code || getTeamCodeByName(fallbackName);
+    const flagCode = code ? flagsByCode[code.trim().toUpperCase()] : null;
+
+    return flagCode ? `https://flagcdn.com/w160/${flagCode}.png` : null;
+  }
+
   function getMatchPlayers(match: Match) {
     return playersByMatch[match.id] || [];
   }
@@ -352,6 +389,11 @@ function getFlagUrl(team: Team | null, fallbackName: string) {
       const label = `${player.name} ${getPlayerAbr(player)}`;
       return label.toLowerCase().includes(search);
     });
+  }
+
+  function getTeamName(teamId: string | null) {
+    if (!teamId) return '-';
+    return teams[teamId]?.name || '-';
   }
 
   async function openScorerDropdown(match: Match) {
@@ -376,16 +418,15 @@ function getFlagUrl(team: Team | null, fallbackName: string) {
 
     setLoadingPlayersForMatch(match.id);
 
-   const { data, error } = await supabase
-  .from('players')
-  .select('id, team_id, name, active, team_abr, position, position_order')
-  .in('team_id', teamIds)
-  .or('active.eq.true,active.is.null')
-  .order('position_order', { ascending: true })
-  .order('team_abr', { ascending: true })
-  .order('name', { ascending: true })
-  .range(0, 200);
-
+    const { data, error } = await supabase
+      .from('players')
+      .select('id, team_id, name, active, team_abr, position, position_order')
+      .in('team_id', teamIds)
+      .or('active.eq.true,active.is.null')
+      .order('position_order', { ascending: true })
+      .order('team_abr', { ascending: true })
+      .order('name', { ascending: true })
+      .range(0, 200);
 
     setLoadingPlayersForMatch(null);
 
@@ -395,24 +436,18 @@ function getFlagUrl(team: Team | null, fallbackName: string) {
     }
 
     const sortedPlayers = (data || []).sort((a: Player, b: Player) => {
-  const orderA = a.position_order ?? 99;
-  const orderB = b.position_order ?? 99;
+      const orderA = a.position_order ?? 99;
+      const orderB = b.position_order ?? 99;
 
-  if (orderA !== orderB) {
-    return orderA - orderB;
-  }
+      if (orderA !== orderB) return orderA - orderB;
 
-  const teamA = getPlayerAbr(a);
-  const teamB = getPlayerAbr(b);
+      const teamA = getPlayerAbr(a);
+      const teamB = getPlayerAbr(b);
 
-  if (teamA !== teamB) {
-    return teamA.localeCompare(teamB);
-  }
+      if (teamA !== teamB) return teamA.localeCompare(teamB);
 
-  return a.name.localeCompare(b.name);
-});
-
-    
+      return a.name.localeCompare(b.name);
+    });
 
     setPlayersByMatch((current) => ({
       ...current,
@@ -426,7 +461,6 @@ function getFlagUrl(team: Team | null, fallbackName: string) {
     });
   }
 
-  
   function update(match: Match, field: keyof Prediction, value: string | boolean) {
     setPredictions((current) => {
       const existing = current[match.id];
@@ -481,6 +515,42 @@ function getFlagUrl(team: Team | null, fallbackName: string) {
       ...current,
       [match.id]: '',
     }));
+  }
+
+  async function toggleOtherPredictions(match: Match) {
+    if (openedPredictionsMatchId === match.id) {
+      setOpenedPredictionsMatchId(null);
+      setOtherPredictions([]);
+      setLoadingOtherPredictions(false);
+      return;
+    }
+
+    if (!selectedLeagueId) {
+      setMessage('Aucune ligue sélectionnée. Vérifie que tu appartiens bien à une ligue.');
+      return;
+    }
+
+    setOpenedPredictionsMatchId(match.id);
+    setOtherPredictions([]);
+    setLoadingOtherPredictions(true);
+    setMessage('');
+
+    const { data, error } = await supabase.rpc(
+      'get_match_predictions_for_league',
+      {
+        p_match_id: match.id,
+        p_league_id: selectedLeagueId,
+      }
+    );
+
+    setLoadingOtherPredictions(false);
+
+    if (error) {
+      setMessage(`Erreur pronos : ${error.message}`);
+      return;
+    }
+
+    setOtherPredictions((data || []) as OtherPrediction[]);
   }
 
   async function save(match: Match) {
@@ -538,6 +608,63 @@ function getFlagUrl(team: Team | null, fallbackName: string) {
     }
   }
 
+  function renderOtherPredictions(match: Match) {
+    return (
+      <div className="card">
+        <h2>
+          Pronos - {match.home_team} vs {match.away_team}
+        </h2>
+
+        {loadingOtherPredictions ? (
+          <p>Chargement des pronos...</p>
+        ) : otherPredictions.length === 0 ? (
+          <p>Aucun prono disponible pour cette ligue.</p>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table
+              style={{
+                width: '100%',
+                borderCollapse: 'collapse',
+              }}
+            >
+              <thead>
+                <tr>
+                  <th style={{ textAlign: 'left', padding: 8 }}>Joueur</th>
+                  <th style={{ textAlign: 'left', padding: 8 }}>Score</th>
+                  <th style={{ textAlign: 'left', padding: 8 }}>1ère équipe</th>
+                  <th style={{ textAlign: 'left', padding: 8 }}>1er buteur</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {otherPredictions.map((prediction) => (
+                  <tr key={prediction.user_id}>
+                    <td style={{ padding: 8 }}>
+                      {prediction.username || 'Utilisateur'}
+                    </td>
+
+                    <td style={{ padding: 8 }}>
+                      {prediction.predicted_home_score ?? '-'} -{' '}
+                      {prediction.predicted_away_score ?? '-'}
+                    </td>
+
+                    <td style={{ padding: 8 }}>
+                      {getTeamName(prediction.predicted_first_scoring_team_id)}
+                    </td>
+
+                    <td style={{ padding: 8 }}>
+                      {prediction.predicted_first_scorer || '-'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   function renderMatchCard(match: Match, mode: ViewMode) {
     const locked = new Date(match.kickoff_at).getTime() <= Date.now();
     const p = predictions[match.id];
@@ -577,264 +704,239 @@ function getFlagUrl(team: Team | null, fallbackName: string) {
         : '';
 
     const readOnly = mode === 'history' || locked;
+    const isOtherPredictionsOpen = openedPredictionsMatchId === match.id;
 
     return (
-      <div
-        className={`card prediction-card ${cardStateClass} ${
-          readOnly ? 'locked' : ''
-        }`}
-        key={match.id}
-      >
-        <div className="points-pill">{p?.points ?? 0} pts</div>
-
-        <div className="prediction-badges">
-          {!p && mode === 'upcoming' && (
-            <span className="badge pending">🟡 À pronostiquer</span>
-          )}
-
-          {p && mode === 'upcoming' && !readOnly && (
-            <span className="badge saved">✅ Enregistré</span>
-          )}
-
-          {readOnly && mode === 'upcoming' && (
-            <span className="badge locked">🔒 Verrouillé</span>
-          )}
-
-          {mode === 'history' && (
-            <span className="badge finished">🏁 Résultat disponible</span>
-          )}
-
-          {p?.double_bonus && <span className="badge fire">🔥 BONUS x2</span>}
-
-          {p?.points >= 11 && <span className="badge perfect">🏆 PERFECT</span>}
-        </div>
-
-        <p className="small">
-          {phaseLabels[match.phase] || match.phase} ·{' '}
-          {new Date(match.kickoff_at).toLocaleString('fr-BE')}
-        </p>
-
-
-        {match.match_label && (
-  <div
-    style={{
-      display: 'inline-block',
-      margin: '0 auto 14px auto',
-      padding: '6px 14px',
-      borderRadius: 999,
-      background: 'rgba(94,234,212,0.15)',
-      border: '1px solid rgba(94,234,212,0.3)',
-      color: '#5eead4',
-      fontWeight: 800,
-      fontSize: '0.9rem',
-    }}
-  >
-    🏆 {match.match_label}
-  </div>
-)}
-
-
-
-        
-        <div className="match-header">
-  <div className="team-side">
-    <div className="team-flag">
-      {getFlagUrl(homeTeam, match.home_team) ? (
-        <img
-          src={getFlagUrl(homeTeam, match.home_team)!}
-          alt={`Drapeau ${homeTeam?.name || match.home_team}`}
-        />
-      ) : (
-        '🏳️'
-      )}
-    </div>
-
-    <div
-      style={{
-        fontWeight: 900,
-        fontSize: '1.8rem',
-        letterSpacing: '1px',
-      }}
-    >
-      {homeTeam?.code || getTeamCodeByName(match.home_team) || '---'}
-    </div>
-
-    <div className="team-code">{homeTeam?.name || match.home_team}</div>
-  </div>
-
-  <div style={{ fontWeight: 900, fontSize: 24, color: '#5eead4' }}>
-    VS
-  </div>
-
-  <div className="team-side">
-    <div className="team-flag">
-      {getFlagUrl(awayTeam, match.away_team) ? (
-        <img
-          src={getFlagUrl(awayTeam, match.away_team)!}
-          alt={`Drapeau ${awayTeam?.name || match.away_team}`}
-        />
-      ) : (
-        '🏳️'
-      )}
-    </div>
-
-    <div
-      style={{
-        fontWeight: 900,
-        fontSize: '1.8rem',
-        letterSpacing: '1px',
-      }}
-    >
-      {awayTeam?.code || getTeamCodeByName(match.away_team) || '---'}
-    </div>
-
-    <div className="team-code">{awayTeam?.name || match.away_team}</div>
-  </div>
-</div>
-
-        
+      <div key={match.id} style={{ display: 'grid', gap: 8 }}>
         <div
-          className="score-box"
-          style={{ justifyContent: 'center', marginBottom: 14 }}
+          className={`card prediction-card ${cardStateClass} ${
+            readOnly ? 'locked' : ''
+          }`}
         >
-          <input
-            disabled={readOnly}
-            type="number"
-            min="0"
-            value={p?.predicted_home_score ?? 0}
-            onChange={(e) =>
-              update(match, 'predicted_home_score', e.target.value)
-            }
-          />
+          <div className="points-pill">{p?.points ?? 0} pts</div>
 
-          <div className="score-separator">-</div>
+          <div className="prediction-badges">
+            {!p && mode === 'upcoming' && (
+              <span className="badge pending">🟡 À pronostiquer</span>
+            )}
 
-          <input
-            disabled={readOnly}
-            type="number"
-            min="0"
-            value={p?.predicted_away_score ?? 0}
-            onChange={(e) =>
-              update(match, 'predicted_away_score', e.target.value)
-            }
-          />
-        </div>
+            {p && mode === 'upcoming' && !readOnly && (
+              <span className="badge saved">✅ Enregistré</span>
+            )}
 
-        <div className="compact-row">
-          <div>
-            <label>Première équipe qui marque</label>
-            <select
-              disabled={readOnly}
-              value={p?.predicted_first_scoring_team_id ?? ''}
-              onChange={(e) =>
-                update(match, 'predicted_first_scoring_team_id', e.target.value)
-              }
-            >
-              <option value="">Aucune sélection</option>
+            {readOnly && mode === 'upcoming' && (
+              <span className="badge locked">🔒 Verrouillé</span>
+            )}
 
-              {match.home_team_id && (
-  <option value={match.home_team_id}>
-    {homeTeam?.name || match.home_team}
-  </option>
-)}
+            {mode === 'history' && (
+              <span className="badge finished">🏁 Résultat disponible</span>
+            )}
 
-{match.away_team_id && (
-  <option value={match.away_team_id}>
-    {awayTeam?.name || match.away_team}
-  </option>
-)}
-            </select>
+            {p?.double_bonus && <span className="badge fire">🔥 BONUS x2</span>}
+
+            {p?.points >= 11 && <span className="badge perfect">🏆 PERFECT</span>}
           </div>
 
-          <div>
-            <label>Premier buteur</label>
+          <p className="small">
+            {phaseLabels[match.phase] || match.phase} ·{' '}
+            {new Date(match.kickoff_at).toLocaleString('fr-BE')}
+          </p>
 
-            <div style={{ position: 'relative' }}>
-              <button
-                type="button"
-                disabled={readOnly}
-                onClick={() => openScorerDropdown(match)}
+          {match.match_label && (
+            <div
+              style={{
+                display: 'inline-block',
+                margin: '0 auto 14px auto',
+                padding: '6px 14px',
+                borderRadius: 999,
+                background: 'rgba(94,234,212,0.15)',
+                border: '1px solid rgba(94,234,212,0.3)',
+                color: '#5eead4',
+                fontWeight: 800,
+                fontSize: '0.9rem',
+              }}
+            >
+              🏆 {match.match_label}
+            </div>
+          )}
+
+          <div className="match-header">
+            <div className="team-side">
+              <div className="team-flag">
+                {getFlagUrl(homeTeam, match.home_team) ? (
+                  <img
+                    src={getFlagUrl(homeTeam, match.home_team)!}
+                    alt={`Drapeau ${homeTeam?.name || match.home_team}`}
+                  />
+                ) : (
+                  '🏳️'
+                )}
+              </div>
+
+              <div
                 style={{
-                  width: '100%',
-                  textAlign: 'left',
-                  border: '1px solid rgba(255,255,255,0.14)',
-                  background: 'rgba(15,23,42,0.9)',
-                  color: 'white',
-                  borderRadius: 10,
-                  padding: '12px 14px',
-                  cursor: readOnly ? 'not-allowed' : 'pointer',
+                  fontWeight: 900,
+                  fontSize: '1.8rem',
+                  letterSpacing: '1px',
                 }}
               >
-                {selectedScorerLabel}
-                <span style={{ float: 'right' }}>⌄</span>
-              </button>
+                {homeTeam?.code || getTeamCodeByName(match.home_team) || '---'}
+              </div>
 
-              {scorerDropdownOpen && !readOnly && (
-                <div
+              <div className="team-code">{homeTeam?.name || match.home_team}</div>
+            </div>
+
+            <div style={{ fontWeight: 900, fontSize: 24, color: '#5eead4' }}>
+              VS
+            </div>
+
+            <div className="team-side">
+              <div className="team-flag">
+                {getFlagUrl(awayTeam, match.away_team) ? (
+                  <img
+                    src={getFlagUrl(awayTeam, match.away_team)!}
+                    alt={`Drapeau ${awayTeam?.name || match.away_team}`}
+                  />
+                ) : (
+                  '🏳️'
+                )}
+              </div>
+
+              <div
+                style={{
+                  fontWeight: 900,
+                  fontSize: '1.8rem',
+                  letterSpacing: '1px',
+                }}
+              >
+                {awayTeam?.code || getTeamCodeByName(match.away_team) || '---'}
+              </div>
+
+              <div className="team-code">{awayTeam?.name || match.away_team}</div>
+            </div>
+          </div>
+
+          <div
+            className="score-box"
+            style={{ justifyContent: 'center', marginBottom: 14 }}
+          >
+            <input
+              disabled={readOnly}
+              type="number"
+              min="0"
+              value={p?.predicted_home_score ?? 0}
+              onChange={(e) =>
+                update(match, 'predicted_home_score', e.target.value)
+              }
+            />
+
+            <div className="score-separator">-</div>
+
+            <input
+              disabled={readOnly}
+              type="number"
+              min="0"
+              value={p?.predicted_away_score ?? 0}
+              onChange={(e) =>
+                update(match, 'predicted_away_score', e.target.value)
+              }
+            />
+          </div>
+
+          <div className="compact-row">
+            <div>
+              <label>Première équipe qui marque</label>
+              <select
+                disabled={readOnly}
+                value={p?.predicted_first_scoring_team_id ?? ''}
+                onChange={(e) =>
+                  update(match, 'predicted_first_scoring_team_id', e.target.value)
+                }
+              >
+                <option value="">Aucune sélection</option>
+
+                {match.home_team_id && (
+                  <option value={match.home_team_id}>
+                    {homeTeam?.name || match.home_team}
+                  </option>
+                )}
+
+                {match.away_team_id && (
+                  <option value={match.away_team_id}>
+                    {awayTeam?.name || match.away_team}
+                  </option>
+                )}
+              </select>
+            </div>
+
+            <div>
+              <label>Premier buteur</label>
+
+              <div style={{ position: 'relative' }}>
+                <button
+                  type="button"
+                  disabled={readOnly}
+                  onClick={() => openScorerDropdown(match)}
                   style={{
-                    marginTop: 8,
+                    width: '100%',
+                    textAlign: 'left',
                     border: '1px solid rgba(255,255,255,0.14)',
-                    background: '#0f172a',
-                    borderRadius: 12,
-                    padding: 10,
-                    maxHeight: 320,
-                    overflow: 'hidden',
-                    boxShadow: '0 20px 40px rgba(0,0,0,0.35)',
+                    background: 'rgba(15,23,42,0.9)',
+                    color: 'white',
+                    borderRadius: 10,
+                    padding: '12px 14px',
+                    cursor: readOnly ? 'not-allowed' : 'pointer',
                   }}
                 >
-                  <input
-                    autoFocus
-                    type="text"
-                    placeholder="Rechercher un joueur..."
-                    value={playerSearchByMatch[match.id] || ''}
-                    onChange={(e) =>
-                      setPlayerSearchByMatch((current) => ({
-                        ...current,
-                        [match.id]: e.target.value,
-                      }))
-                    }
-                    style={{ marginBottom: 8 }}
-                  />
+                  {selectedScorerLabel}
+                  <span style={{ float: 'right' }}>⌄</span>
+                </button>
 
-                  {loadingPlayersForMatch === match.id && (
-                    <p className="small">Chargement des joueurs...</p>
-                  )}
-
+                {scorerDropdownOpen && !readOnly && (
                   <div
                     style={{
-                      maxHeight: 230,
-                      overflowY: 'auto',
-                      display: 'grid',
-                      gap: 4,
+                      marginTop: 8,
+                      border: '1px solid rgba(255,255,255,0.14)',
+                      background: '#0f172a',
+                      borderRadius: 12,
+                      padding: 10,
+                      maxHeight: 320,
+                      overflow: 'hidden',
+                      boxShadow: '0 20px 40px rgba(0,0,0,0.35)',
                     }}
                   >
-                    <button
-                      type="button"
-                      onClick={() => selectScorer(match, '')}
+                    <input
+                      autoFocus
+                      type="text"
+                      placeholder="Rechercher un joueur..."
+                      value={playerSearchByMatch[match.id] || ''}
+                      onChange={(e) =>
+                        setPlayerSearchByMatch((current) => ({
+                          ...current,
+                          [match.id]: e.target.value,
+                        }))
+                      }
+                      style={{ marginBottom: 8 }}
+                    />
+
+                    {loadingPlayersForMatch === match.id && (
+                      <p className="small">Chargement des joueurs...</p>
+                    )}
+
+                    <div
                       style={{
-                        textAlign: 'left',
-                        background: 'rgba(255,255,255,0.06)',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: 8,
-                        padding: '9px 10px',
-                        cursor: 'pointer',
+                        maxHeight: 230,
+                        overflowY: 'auto',
+                        display: 'grid',
+                        gap: 4,
                       }}
                     >
-                      Aucun buteur
-                    </button>
-
-                    {filteredAvailablePlayers.map((player) => (
                       <button
                         type="button"
-                        key={player.id}
-                        onClick={() => selectScorer(match, player.id)}
+                        onClick={() => selectScorer(match, '')}
                         style={{
                           textAlign: 'left',
-                          background:
-                            p?.predicted_first_scorer_id === player.id
-                              ? 'rgba(94, 234, 212, 0.18)'
-                              : 'transparent',
+                          background: 'rgba(255,255,255,0.06)',
                           color: 'white',
                           border: 'none',
                           borderRadius: 8,
@@ -842,47 +944,90 @@ function getFlagUrl(team: Team | null, fallbackName: string) {
                           cursor: 'pointer',
                         }}
                       >
-                        {getPositionLabel(player.position)} · {player.name} — {getPlayerAbr(player)}
+                        Aucun buteur
                       </button>
-                    ))}
-                  </div>
 
-                  <p className="small" style={{ marginTop: 8 }}>
-                    {filteredAvailablePlayers.length} joueur(s) affiché(s) sur{' '}
-                    {availablePlayers.length}
-                  </p>
-                </div>
-              )}
+                      {filteredAvailablePlayers.map((player) => (
+                        <button
+                          type="button"
+                          key={player.id}
+                          onClick={() => selectScorer(match, player.id)}
+                          style={{
+                            textAlign: 'left',
+                            background:
+                              p?.predicted_first_scorer_id === player.id
+                                ? 'rgba(94, 234, 212, 0.18)'
+                                : 'transparent',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: 8,
+                            padding: '9px 10px',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {getPositionLabel(player.position)} · {player.name} —{' '}
+                          {getPlayerAbr(player)}
+                        </button>
+                      ))}
+                    </div>
+
+                    <p className="small" style={{ marginTop: 8 }}>
+                      {filteredAvailablePlayers.length} joueur(s) affiché(s) sur{' '}
+                      {availablePlayers.length}
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
+
+            {bonusAllowedPhases.includes(match.phase) && mode === 'upcoming' && (
+              <label
+                style={{
+                  display: 'flex',
+                  gap: 8,
+                  alignItems: 'center',
+                  marginTop: 10,
+                }}
+              >
+                <input
+                  type="checkbox"
+                  disabled={readOnly || bonusUnavailable}
+                  checked={p?.double_bonus ?? false}
+                  onChange={(e) => update(match, 'double_bonus', e.target.checked)}
+                  style={{ width: 'auto' }}
+                />
+
+                <span>{p?.double_bonus ? '🔥 Bonus x2 activé' : 'Bonus x2'}</span>
+              </label>
+            )}
           </div>
 
-          {bonusAllowedPhases.includes(match.phase) && mode === 'upcoming' && (
-            <label
-              style={{
-                display: 'flex',
-                gap: 8,
-                alignItems: 'center',
-                marginTop: 10,
-              }}
-            >
-              <input
-                type="checkbox"
-                disabled={readOnly || bonusUnavailable}
-                checked={p?.double_bonus ?? false}
-                onChange={(e) => update(match, 'double_bonus', e.target.checked)}
-                style={{ width: 'auto' }}
-              />
+          <div
+            style={{
+              display: 'flex',
+              gap: 12,
+              alignItems: 'center',
+              marginTop: 14,
+              flexWrap: 'wrap',
+            }}
+          >
+            {mode === 'upcoming' && (
+              <button disabled={readOnly} onClick={() => save(match)}>
+                {readOnly ? 'Verrouillé' : p ? 'Mettre à jour' : 'Sauvegarder'}
+              </button>
+            )}
 
-              <span>{p?.double_bonus ? '🔥 Bonus x2 activé' : 'Bonus x2'}</span>
-            </label>
-          )}
+            {readOnly && (
+              <button type="button" onClick={() => toggleOtherPredictions(match)}>
+                {isOtherPredictionsOpen
+                  ? 'Ne plus voir les pronos'
+                  : 'Voir les pronos'}
+              </button>
+            )}
+          </div>
         </div>
 
-        {mode === 'upcoming' && (
-          <button disabled={readOnly} onClick={() => save(match)}>
-            {readOnly ? 'Verrouillé' : p ? 'Mettre à jour' : 'Sauvegarder'}
-          </button>
-        )}
+        {isOtherPredictionsOpen && renderOtherPredictions(match)}
       </div>
     );
   }
@@ -894,7 +1039,11 @@ function getFlagUrl(team: Team | null, fallbackName: string) {
       <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
         <button
           type="button"
-          onClick={() => setViewMode('upcoming')}
+          onClick={() => {
+            setViewMode('upcoming');
+            setOpenedPredictionsMatchId(null);
+            setOtherPredictions([]);
+          }}
           className={viewMode === 'upcoming' ? '' : 'secondary'}
         >
           📅 À venir
@@ -902,12 +1051,38 @@ function getFlagUrl(team: Team | null, fallbackName: string) {
 
         <button
           type="button"
-          onClick={() => setViewMode('history')}
+          onClick={() => {
+            setViewMode('history');
+            setOpenedPredictionsMatchId(null);
+            setOtherPredictions([]);
+          }}
           className={viewMode === 'history' ? '' : 'secondary'}
         >
           🏁 Historique
         </button>
       </div>
+
+      {leagues.length > 0 && (
+        <div className="card">
+          <h2>Filtre ligue</h2>
+
+          <label>Ligue</label>
+          <select
+            value={selectedLeagueId}
+            onChange={(event) => {
+              setSelectedLeagueId(event.target.value);
+              setOpenedPredictionsMatchId(null);
+              setOtherPredictions([]);
+            }}
+          >
+            {leagues.map((league) => (
+              <option key={league.id} value={league.id}>
+                {league.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {message && (
         <p className={message.includes('sauvegardé') ? 'success' : 'error'}>
@@ -916,83 +1091,81 @@ function getFlagUrl(team: Team | null, fallbackName: string) {
       )}
 
       {viewMode === 'upcoming' && (
-  <>
-    <div className="card">
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          gap: 12,
-          alignItems: 'center',
-          flexWrap: 'wrap',
-        }}
-      >
-        <button
-          type="button"
-          className="secondary"
-          onClick={() => setSelectedDate((date) => addDays(date, -1))}
-        >
-          ◀ Jour précédent
-        </button>
+        <>
+          <div className="card">
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                gap: 12,
+                alignItems: 'center',
+                flexWrap: 'wrap',
+              }}
+            >
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => setSelectedDate((date) => addDays(date, -1))}
+              >
+                ◀ Jour précédent
+              </button>
 
-        <h2 style={{ margin: 0, textAlign: 'center' }}>
-          {formatDateTitle(selectedDate)}
-        </h2>
+              <h2 style={{ margin: 0, textAlign: 'center' }}>
+                {formatDateTitle(selectedDate)}
+              </h2>
 
-        <button
-          type="button"
-          className="secondary"
-          onClick={() => setSelectedDate((date) => addDays(date, 1))}
-        >
-          Jour suivant ▶
-        </button>
-      </div>
-    </div>
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => setSelectedDate((date) => addDays(date, 1))}
+              >
+                Jour suivant ▶
+              </button>
+            </div>
+          </div>
 
-    <div className="card">
-      <h2>🏆 Pronostic Champion du Monde</h2>
+          <div className="card">
+            <h2>🏆 Pronostic Champion du Monde</h2>
 
-      <p className="small">
-        Pronostique le vainqueur de la Coupe du Monde 2026 et gagne jusqu’à 20
-        points bonus.
-      </p>
+            <p className="small">
+              Pronostique le vainqueur de la Coupe du Monde 2026 et gagne
+              jusqu’à 20 points bonus.
+            </p>
 
-      <Link href="/champion">
-        <button type="button" style={{ width: '100%', marginTop: 12 }}>
-          🏆 Gérer mon pronostic Champion
-        </button>
-      </Link>
-    </div>
+            <Link href="/champion">
+              <button type="button" style={{ width: '100%', marginTop: 12 }}>
+                🏆 Gérer mon pronostic Champion
+              </button>
+            </Link>
+          </div>
 
-    {matchesForSelectedDate.length === 0 ? (
-      <div className="card">
-        <p>Aucun match prévu ce jour-là.</p>
-      </div>
-    ) : (
-      <div style={{ display: 'grid', gap: 16 }}>
-        {matchesForSelectedDate.map((match) =>
-          renderMatchCard(match, 'upcoming')
-        )}
-      </div>
-    )}
-  </>
-)}
+          {matchesForSelectedDate.length === 0 ? (
+            <div className="card">
+              <p>Aucun match prévu ce jour-là.</p>
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gap: 16 }}>
+              {matchesForSelectedDate.map((match) =>
+                renderMatchCard(match, 'upcoming')
+              )}
+            </div>
+          )}
+        </>
+      )}
 
-{viewMode === 'history' && (
-  <>
-    {historyMatches.length === 0 ? (
-      <div className="card">
-        <p>Aucun match terminé pour le moment.</p>
-      </div>
-    ) : (
-      <div style={{ display: 'grid', gap: 16 }}>
-        {historyMatches.map((match) =>
-          renderMatchCard(match, 'history')
-        )}
-      </div>
-    )}
-  </>
-)}
+      {viewMode === 'history' && (
+        <>
+          {historyMatches.length === 0 ? (
+            <div className="card">
+              <p>Aucun match terminé pour le moment.</p>
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gap: 16 }}>
+              {historyMatches.map((match) => renderMatchCard(match, 'history'))}
+            </div>
+          )}
+        </>
+      )}
     </main>
   );
 }
