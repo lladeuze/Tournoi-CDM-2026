@@ -14,17 +14,21 @@
 
 * {
   box-sizing: border-box;
-}
-
+  
 body {
   margin: 0;
 
   background:
+    radial-gradient(
+      circle at center,
+      rgba(0,89,255,.15),
+      transparent 40%
+    ),
     linear-gradient(
-      135deg,
-      #001f54 0%,
-      #003b8e 50%,
-      #001f54 100%
+      180deg,
+      #020617,
+      #07111f,
+      #020617
     );
 
   min-height: 100vh;
