@@ -18,16 +18,13 @@
 
 body {
   margin: 0;
-  color: var(--text);
 
   background:
-    radial-gradient(circle at top,
-      rgba(255,215,0,.08),
-      transparent 30%),
     linear-gradient(
-      180deg,
-      #050505 0%,
-      #111111 100%
+      135deg,
+      #001f54 0%,
+      #003b8e 50%,
+      #001f54 100%
     );
 
   min-height: 100vh;
