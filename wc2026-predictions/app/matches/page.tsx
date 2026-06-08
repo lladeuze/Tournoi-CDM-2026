@@ -19,6 +19,7 @@ type Match = {
   kickoff_at: string;
   home_score: number | null;
   away_score: number | null;
+  first_scoring_team: string | null;
   first_scorer: string | null;
   status: string;
   match_label: string | null;
@@ -113,12 +114,26 @@ export default function MatchesPage() {
     ] = await Promise.all([
       supabase
         .from('matches')
-        .select('*')
+        .select(`
+          id,
+          home_team,
+          away_team,
+          home_team_id,
+          away_team_id,
+          kickoff_at,
+          home_score,
+          away_score,
+          first_scoring_team,
+          first_scorer,
+          status,
+          match_label,
+          phase
+        `)
         .order('kickoff_at', { ascending: true }),
 
       supabase
         .from('teams')
-        .select('*')
+        .select('id, name, code, logo_url')
         .order('name', { ascending: true }),
     ]);
 
@@ -151,6 +166,50 @@ export default function MatchesPage() {
   function getTeam(teamId: string | null) {
     if (!teamId) return null;
     return teams[teamId] || null;
+  }
+
+  function getTeamLabelFromValue(value: string | null, match: Match) {
+    if (!value) return '-';
+
+    const cleanedValue = value.trim();
+    const upperValue = cleanedValue.toUpperCase();
+
+    const homeTeam = getTeam(match.home_team_id);
+    const awayTeam = getTeam(match.away_team_id);
+
+    if (match.home_team_id && cleanedValue === match.home_team_id) {
+      return homeTeam?.name || match.home_team;
+    }
+
+    if (match.away_team_id && cleanedValue === match.away_team_id) {
+      return awayTeam?.name || match.away_team;
+    }
+
+    if (homeTeam?.code?.toUpperCase() === upperValue) {
+      return homeTeam.name;
+    }
+
+    if (awayTeam?.code?.toUpperCase() === upperValue) {
+      return awayTeam.name;
+    }
+
+    if (homeTeam?.name?.toUpperCase() === upperValue) {
+      return homeTeam.name;
+    }
+
+    if (awayTeam?.name?.toUpperCase() === upperValue) {
+      return awayTeam.name;
+    }
+
+    if (match.home_team.toUpperCase() === upperValue) {
+      return match.home_team;
+    }
+
+    if (match.away_team.toUpperCase() === upperValue) {
+      return match.away_team;
+    }
+
+    return cleanedValue;
   }
 
   function renderTeam(team: Team | null, fallbackName: string) {
@@ -259,6 +318,11 @@ export default function MatchesPage() {
                   }}
                 >
                   Score : {match.home_score ?? '-'} - {match.away_score ?? '-'}
+                </p>
+
+                <p className="small">
+                  Première équipe à marquer :{' '}
+                  {getTeamLabelFromValue(match.first_scoring_team, match)}
                 </p>
 
                 <p className="small">
