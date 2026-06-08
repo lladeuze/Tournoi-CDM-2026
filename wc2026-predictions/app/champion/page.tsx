@@ -272,9 +272,7 @@ export default function ChampionPage() {
     if (matches.length === 0) return null;
 
     return new Date(
-      Math.min(
-        ...matches.map((match) => new Date(match.kickoff_at).getTime())
-      )
+      Math.min(...matches.map((match) => new Date(match.kickoff_at).getTime()))
     );
   }
 
@@ -502,6 +500,11 @@ export default function ChampionPage() {
                 être pronostiqués avant le premier match.
               </p>
 
+              <p>
+                <strong>Récompense :</strong> +10 points par trophée individuel
+                correctement pronostiqué, soit jusqu’à +40 points bonus.
+              </p>
+
               <p className="small">
                 Verrouillage prévu : {formatDate(firstMatchDate)}
               </p>
@@ -514,6 +517,11 @@ export default function ChampionPage() {
             <p className="small">
               Ces pronostics doivent être encodés avant le premier match de la
               compétition.
+            </p>
+
+            <p className="small">
+              Barème : +10 points par bon pronostic, soit jusqu’à 40 points
+              bonus.
             </p>
 
             <p className="small">
