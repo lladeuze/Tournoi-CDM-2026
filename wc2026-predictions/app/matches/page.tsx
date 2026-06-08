@@ -107,6 +107,7 @@ const flagsByCode: Record<string, string> = {
 function getFlagUrl(team: Team | null) {
   const code = team?.code?.trim().toUpperCase();
   const flagCode = code ? flagsByCode[code] : null;
+
   return flagCode ? `https://flagcdn.com/w160/${flagCode}.png` : null;
 }
 
@@ -122,7 +123,7 @@ export default function MatchesPage() {
   const [phaseFilter, setPhaseFilter] = useState('all');
   const [message, setMessage] = useState('');
 
-  const [openedMatch, setOpenedMatch] = useState<Match | null>(null);
+  const [openedMatchId, setOpenedMatchId] = useState<string | null>(null);
   const [otherPredictions, setOtherPredictions] = useState<OtherPrediction[]>([]);
   const [loadingPredictions, setLoadingPredictions] = useState(false);
 
@@ -133,7 +134,13 @@ export default function MatchesPage() {
   async function load() {
     setMessage('');
 
-    const { data: userData } = await supabase.auth.getUser();
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+
+    if (userError) {
+      setMessage(`Erreur utilisateur : ${userError.message}`);
+      return;
+    }
+
     const user = userData.user;
 
     const [
@@ -237,19 +244,33 @@ export default function MatchesPage() {
 
     if (firstTeam) return firstTeam.name;
 
-    if (match.first_scoring_team_id === match.home_team_id) return match.home_team;
-    if (match.first_scoring_team_id === match.away_team_id) return match.away_team;
+    if (match.first_scoring_team_id === match.home_team_id) {
+      return match.home_team;
+    }
+
+    if (match.first_scoring_team_id === match.away_team_id) {
+      return match.away_team;
+    }
 
     return '-';
   }
 
-  async function openPredictions(match: Match) {
-    if (!selectedLeagueId) {
-      setMessage('Sélectionne une ligue pour voir les pronos.');
+  async function togglePredictions(match: Match) {
+    if (openedMatchId === match.id) {
+      setOpenedMatchId(null);
+      setOtherPredictions([]);
+      setLoadingPredictions(false);
       return;
     }
 
-    setOpenedMatch(match);
+    if (!selectedLeagueId) {
+      setMessage(
+        'Aucune ligue sélectionnée. Vérifie que tu appartiens bien à une ligue.'
+      );
+      return;
+    }
+
+    setOpenedMatchId(match.id);
     setOtherPredictions([]);
     setLoadingPredictions(true);
     setMessage('');
@@ -270,11 +291,6 @@ export default function MatchesPage() {
     }
 
     setOtherPredictions((data || []) as OtherPrediction[]);
-  }
-
-  function closePredictions() {
-    setOpenedMatch(null);
-    setOtherPredictions([]);
   }
 
   function renderTeam(team: Team | null, fallbackName: string) {
@@ -343,7 +359,11 @@ export default function MatchesPage() {
           <label>Ligue</label>
           <select
             value={selectedLeagueId}
-            onChange={(event) => setSelectedLeagueId(event.target.value)}
+            onChange={(event) => {
+              setSelectedLeagueId(event.target.value);
+              setOpenedMatchId(null);
+              setOtherPredictions([]);
+            }}
           >
             {leagues.length === 0 ? (
               <option value="">Aucune ligue disponible</option>
@@ -368,145 +388,147 @@ export default function MatchesPage() {
             const homeTeam = getTeam(match.home_team_id);
             const awayTeam = getTeam(match.away_team_id);
             const started = hasMatchStarted(match.kickoff_at);
+            const isOpen = openedMatchId === match.id;
 
             return (
-              <div className="card" key={match.id}>
-                <p className="small">
-                  {phaseLabels[match.phase] || match.phase} ·{' '}
-                  {new Date(match.kickoff_at).toLocaleString('fr-BE')}
-                </p>
+              <div key={match.id} style={{ display: 'grid', gap: 8 }}>
+                <div className="card">
+                  <p className="small">
+                    {phaseLabels[match.phase] || match.phase} ·{' '}
+                    {new Date(match.kickoff_at).toLocaleString('fr-BE')}
+                  </p>
 
-                <div className="match-header">
-                  {renderTeam(homeTeam, match.home_team)}
+                  <div className="match-header">
+                    {renderTeam(homeTeam, match.home_team)}
+
+                    <div
+                      style={{
+                        fontWeight: 900,
+                        fontSize: 24,
+                        color: '#5eead4',
+                      }}
+                    >
+                      VS
+                    </div>
+
+                    {renderTeam(awayTeam, match.away_team)}
+                  </div>
+
+                  <p
+                    style={{
+                      fontSize: 24,
+                      fontWeight: 900,
+                      textAlign: 'center',
+                      marginTop: 16,
+                    }}
+                  >
+                    Score : {match.home_score ?? '-'} -{' '}
+                    {match.away_score ?? '-'}
+                  </p>
+
+                  <p className="small">
+                    Première équipe qui marque : {getFirstScoringTeam(match)}
+                  </p>
+
+                  <p className="small">
+                    Premier buteur : {match.first_scorer || '-'}
+                  </p>
 
                   <div
                     style={{
-                      fontWeight: 900,
-                      fontSize: 24,
-                      color: '#5eead4',
+                      display: 'flex',
+                      gap: 12,
+                      alignItems: 'center',
+                      marginTop: 12,
+                      flexWrap: 'wrap',
                     }}
                   >
-                    VS
+                    <span className="badge">{match.status}</span>
+
+                    {started ? (
+                      <button
+                        type="button"
+                        onClick={() => togglePredictions(match)}
+                      >
+                        {isOpen
+                          ? 'Ne plus voir les pronos'
+                          : 'Voir les pronos'}
+                      </button>
+                    ) : (
+                      <span className="small">
+                        Les pronos des autres seront visibles au coup d’envoi.
+                      </span>
+                    )}
                   </div>
-
-                  {renderTeam(awayTeam, match.away_team)}
                 </div>
 
-                <p
-                  style={{
-                    fontSize: 24,
-                    fontWeight: 900,
-                    textAlign: 'center',
-                    marginTop: 16,
-                  }}
-                >
-                  Score : {match.home_score ?? '-'} - {match.away_score ?? '-'}
-                </p>
+                {isOpen && (
+                  <div className="card">
+                    <h2>
+                      Pronos - {match.home_team} vs {match.away_team}
+                    </h2>
 
-                <p className="small">
-                  Première équipe qui marque : {getFirstScoringTeam(match)}
-                </p>
+                    {loadingPredictions ? (
+                      <p>Chargement des pronos...</p>
+                    ) : otherPredictions.length === 0 ? (
+                      <p>Aucun prono disponible pour cette ligue.</p>
+                    ) : (
+                      <div style={{ overflowX: 'auto' }}>
+                        <table
+                          style={{
+                            width: '100%',
+                            borderCollapse: 'collapse',
+                          }}
+                        >
+                          <thead>
+                            <tr>
+                              <th style={{ textAlign: 'left', padding: 8 }}>
+                                Joueur
+                              </th>
+                              <th style={{ textAlign: 'left', padding: 8 }}>
+                                Score
+                              </th>
+                              <th style={{ textAlign: 'left', padding: 8 }}>
+                                1ère équipe
+                              </th>
+                              <th style={{ textAlign: 'left', padding: 8 }}>
+                                1er buteur
+                              </th>
+                            </tr>
+                          </thead>
 
-                <p className="small">
-                  Premier buteur : {match.first_scorer || '-'}
-                </p>
+                          <tbody>
+                            {otherPredictions.map((prediction) => (
+                              <tr key={prediction.user_id}>
+                                <td style={{ padding: 8 }}>
+                                  {prediction.username || 'Utilisateur'}
+                                </td>
 
-                <div
-                  style={{
-                    display: 'flex',
-                    gap: 12,
-                    alignItems: 'center',
-                    marginTop: 12,
-                    flexWrap: 'wrap',
-                  }}
-                >
-                  <span className="badge">{match.status}</span>
+                                <td style={{ padding: 8 }}>
+                                  {prediction.predicted_home_score ?? '-'} -{' '}
+                                  {prediction.predicted_away_score ?? '-'}
+                                </td>
 
-                  {started && (
-                    <button
-                      type="button"
-                      onClick={() => openPredictions(match)}
-                    >
-                      Voir les pronos
-                    </button>
-                  )}
+                                <td style={{ padding: 8 }}>
+                                  {getTeamName(
+                                    prediction.predicted_first_scoring_team_id
+                                  )}
+                                </td>
 
-                  {!started && (
-                    <span className="small">
-                      Les pronos des autres seront visibles au coup d’envoi.
-                    </span>
-                  )}
-                </div>
+                                <td style={{ padding: 8 }}>
+                                  {prediction.predicted_first_scorer || '-'}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}
-        </div>
-      )}
-
-      {openedMatch && (
-        <div className="card" style={{ marginTop: 24 }}>
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              gap: 12,
-              alignItems: 'center',
-            }}
-          >
-            <h2>
-              Pronos - {openedMatch.home_team} vs {openedMatch.away_team}
-            </h2>
-
-            <button type="button" onClick={closePredictions}>
-              Fermer
-            </button>
-          </div>
-
-          {loadingPredictions ? (
-            <p>Chargement des pronos...</p>
-          ) : otherPredictions.length === 0 ? (
-            <p>Aucun prono disponible pour cette ligue.</p>
-          ) : (
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr>
-                    <th style={{ textAlign: 'left', padding: 8 }}>Joueur</th>
-                    <th style={{ textAlign: 'left', padding: 8 }}>Score</th>
-                    <th style={{ textAlign: 'left', padding: 8 }}>
-                      1ère équipe
-                    </th>
-                    <th style={{ textAlign: 'left', padding: 8 }}>
-                      1er buteur
-                    </th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {otherPredictions.map((prediction) => (
-                    <tr key={prediction.user_id}>
-                      <td style={{ padding: 8 }}>
-                        {prediction.username || 'Utilisateur'}
-                      </td>
-
-                      <td style={{ padding: 8 }}>
-                        {prediction.predicted_home_score ?? '-'} -{' '}
-                        {prediction.predicted_away_score ?? '-'}
-                      </td>
-
-                      <td style={{ padding: 8 }}>
-                        {getTeamName(prediction.predicted_first_scoring_team_id)}
-                      </td>
-
-                      <td style={{ padding: 8 }}>
-                        {prediction.predicted_first_scorer || '-'}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
         </div>
       )}
     </main>
