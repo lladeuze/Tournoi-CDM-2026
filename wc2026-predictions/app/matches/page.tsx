@@ -294,7 +294,7 @@ export default function MatchesPage() {
                 </p>
 
                 <p className="small">
-                  Première équipe à marquer : {getFirstScoringTeam(match)}
+                  Première équipe qui marque : {getFirstScoringTeam(match)}
                 </p>
 
                 <p className="small">
