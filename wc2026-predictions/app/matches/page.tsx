@@ -123,7 +123,7 @@ export default function MatchesPage() {
           kickoff_at,
           home_score,
           away_score,
-          first_scoring_team,
+          first_scoring_team_id,
           first_scorer,
           status,
           match_label,
