@@ -17,6 +17,8 @@ type Player = {
   name: string;
   active: boolean | null;
   team_abr: string | null;
+  position: string | null;
+  position_order: number | null;
 };
 
 type Match = {
@@ -366,14 +368,16 @@ function getFlagUrl(team: Team | null, fallbackName: string) {
 
     setLoadingPlayersForMatch(match.id);
 
-    const { data, error } = await supabase
-      .from('players')
-      .select('id, team_id, name, active, team_abr')
-      .in('team_id', teamIds)
-      .or('active.eq.true,active.is.null')
-      .order('team_abr', { ascending: true })
-      .order('name', { ascending: true })
-      .range(0, 200);
+   const { data, error } = await supabase
+  .from('players')
+  .select('id, team_id, name, active, team_abr, position, position_order')
+  .in('team_id', teamIds)
+  .or('active.eq.true,active.is.null')
+  .order('team_abr', { ascending: true })
+  .order('position_order', { ascending: true })
+  .order('name', { ascending: true })
+  .range(0, 200);
+
 
     setLoadingPlayersForMatch(null);
 
