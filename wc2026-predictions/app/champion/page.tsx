@@ -47,6 +47,12 @@ type AwardPrediction = {
   locked_at: string | null;
 };
 
+type AwardKey =
+  | 'best_player'
+  | 'top_scorer'
+  | 'top_assist'
+  | 'best_goalkeeper';
+
 const flagsByCode: Record<string, string> = {
   MEX: 'mx',
   RSA: 'za',
@@ -101,7 +107,6 @@ const flagsByCode: Record<string, string> = {
 function getFlagUrl(team: Team) {
   const code = team.code?.trim().toUpperCase();
   const flagCode = code ? flagsByCode[code] : null;
-
   return flagCode ? `https://flagcdn.com/w160/${flagCode}.png` : null;
 }
 
@@ -117,8 +122,12 @@ function formatDate(date: Date | null) {
   });
 }
 
-function getPlayerLabel(player: Player) {
-  return `${player.team_abr || '---'} — ${player.name}`;
+function getPositionLabel(position: string | null) {
+  if (position === 'ATT') return '⚽ ATT';
+  if (position === 'MID') return '🎯 MID';
+  if (position === 'DEF') return '🛡 DEF';
+  if (position === 'GK') return '🧤 GK';
+  return '❔';
 }
 
 export default function ChampionPage() {
@@ -129,7 +138,6 @@ export default function ChampionPage() {
 
   const [championPrediction, setChampionPrediction] =
     useState<ChampionPrediction | null>(null);
-
   const [awardPrediction, setAwardPrediction] =
     useState<AwardPrediction | null>(null);
 
@@ -143,6 +151,26 @@ export default function ChampionPage() {
   const [topScorerId, setTopScorerId] = useState('');
   const [topAssistId, setTopAssistId] = useState('');
   const [bestGoalkeeperId, setBestGoalkeeperId] = useState('');
+
+  const [teamSearch, setTeamSearch] = useState('');
+
+  const [awardSearchByKey, setAwardSearchByKey] = useState<
+    Record<AwardKey, string>
+  >({
+    best_player: '',
+    top_scorer: '',
+    top_assist: '',
+    best_goalkeeper: '',
+  });
+
+  const [awardTeamFilterByKey, setAwardTeamFilterByKey] = useState<
+    Record<AwardKey, string>
+  >({
+    best_player: '',
+    top_scorer: '',
+    top_assist: '',
+    best_goalkeeper: '',
+  });
 
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
@@ -256,6 +284,26 @@ export default function ChampionPage() {
     setLoading(false);
   }
 
+  const teamsById = useMemo(() => {
+    const result: Record<string, Team> = {};
+
+    teams.forEach((team) => {
+      result[team.id] = team;
+    });
+
+    return result;
+  }, [teams]);
+
+  const filteredTeams = useMemo(() => {
+    const search = teamSearch.trim().toLowerCase();
+
+    if (!search) return teams;
+
+    return teams.filter((team) => {
+      return `${team.name} ${team.code || ''}`.toLowerCase().includes(search);
+    });
+  }, [teams, teamSearch]);
+
   const initialChampionTeam = useMemo(() => {
     return teams.find((team) => team.id === initialChampionTeamId) || null;
   }, [teams, initialChampionTeamId]);
@@ -263,10 +311,6 @@ export default function ChampionPage() {
   const secondChampionTeam = useMemo(() => {
     return teams.find((team) => team.id === secondChampionTeamId) || null;
   }, [teams, secondChampionTeamId]);
-
-  const goalkeepers = useMemo(() => {
-    return players.filter((player) => player.position === 'GK');
-  }, [players]);
 
   function getFirstMatchDate() {
     if (matches.length === 0) return null;
@@ -327,6 +371,81 @@ export default function ChampionPage() {
       setSecondChampionTeamId(team.id);
       setMessage(`${team.name} sélectionné comme champion après groupes.`);
     }
+  }
+
+  function getPlayerTeam(player: Player) {
+    return player.team_id ? teamsById[player.team_id] || null : null;
+  }
+
+  function getPlayerAbr(player: Player) {
+    const team = getPlayerTeam(player);
+    return player.team_abr || team?.code || '---';
+  }
+
+  function getSelectedPlayerLabel(playerId: string) {
+    const player = players.find((p) => p.id === playerId);
+
+    if (!player) return 'Aucune sélection';
+
+    return `${getPositionLabel(player.position)} · ${player.name} — ${getPlayerAbr(
+      player
+    )}`;
+  }
+
+  function getFilteredPlayersForAward(key: AwardKey) {
+    const search = awardSearchByKey[key].trim().toLowerCase();
+    const selectedTeamId = awardTeamFilterByKey[key];
+
+    let source = players;
+
+    if (key === 'best_goalkeeper') {
+      source = source.filter((player) => player.position === 'GK');
+    }
+
+    if (selectedTeamId) {
+      source = source.filter((player) => player.team_id === selectedTeamId);
+    }
+
+    if (search) {
+      source = source.filter((player) => {
+        const team = getPlayerTeam(player);
+        const label = `${player.name} ${player.team_abr || ''} ${
+          team?.name || ''
+        } ${team?.code || ''} ${player.position || ''}`;
+
+        return label.toLowerCase().includes(search);
+      });
+    }
+
+    return source.slice(0, 80);
+  }
+
+  function updateAwardSearch(key: AwardKey, value: string) {
+    setAwardSearchByKey((current) => ({
+      ...current,
+      [key]: value,
+    }));
+  }
+
+  function updateAwardTeamFilter(key: AwardKey, value: string) {
+    setAwardTeamFilterByKey((current) => ({
+      ...current,
+      [key]: value,
+    }));
+  }
+
+  function selectAwardPlayer(key: AwardKey, playerId: string) {
+    if (key === 'best_player') setBestPlayerId(playerId);
+    if (key === 'top_scorer') setTopScorerId(playerId);
+    if (key === 'top_assist') setTopAssistId(playerId);
+    if (key === 'best_goalkeeper') setBestGoalkeeperId(playerId);
+  }
+
+  function getAwardSelectedId(key: AwardKey) {
+    if (key === 'best_player') return bestPlayerId;
+    if (key === 'top_scorer') return topScorerId;
+    if (key === 'top_assist') return topAssistId;
+    return bestGoalkeeperId;
   }
 
   async function saveChampionPrediction(type: 'initial' | 'second') {
@@ -420,6 +539,104 @@ export default function ChampionPage() {
     await load();
   }
 
+  function renderAwardSelector(title: string, key: AwardKey) {
+    const selectedId = getAwardSelectedId(key);
+    const filteredPlayers = getFilteredPlayersForAward(key);
+    const disabled = !canEditAwardPredictions();
+
+    return (
+      <div
+        style={{
+          border: '1px solid rgba(255,255,255,0.12)',
+          borderRadius: 16,
+          padding: 14,
+          background: 'rgba(255,255,255,0.03)',
+        }}
+      >
+        <h3 style={{ marginTop: 0 }}>{title}</h3>
+
+        <p className="small">
+          Sélection actuelle : <strong>{getSelectedPlayerLabel(selectedId)}</strong>
+        </p>
+
+        <label>Pays / équipe</label>
+        <select
+          disabled={disabled}
+          value={awardTeamFilterByKey[key]}
+          onChange={(e) => updateAwardTeamFilter(key, e.target.value)}
+        >
+          <option value="">Tous les pays</option>
+
+          {teams.map((team) => (
+            <option key={team.id} value={team.id}>
+              {team.code || '---'} — {team.name}
+            </option>
+          ))}
+        </select>
+
+        <label>Rechercher un joueur</label>
+        <input
+          disabled={disabled}
+          type="text"
+          placeholder="Écris un nom, une équipe ou un poste..."
+          value={awardSearchByKey[key]}
+          onChange={(e) => updateAwardSearch(key, e.target.value)}
+        />
+
+        <div
+          style={{
+            display: 'grid',
+            gap: 6,
+            maxHeight: 300,
+            overflowY: 'auto',
+            marginTop: 12,
+          }}
+        >
+          <button
+            type="button"
+            disabled={disabled}
+            className={!selectedId ? '' : 'secondary'}
+            onClick={() => selectAwardPlayer(key, '')}
+            style={{ textAlign: 'left' }}
+          >
+            Aucune sélection
+          </button>
+
+          {filteredPlayers.map((player) => {
+            const selected = selectedId === player.id;
+
+            return (
+              <button
+                key={player.id}
+                type="button"
+                disabled={disabled}
+                className={selected ? '' : 'secondary'}
+                onClick={() => selectAwardPlayer(key, player.id)}
+                style={{
+                  textAlign: 'left',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  gap: 12,
+                  alignItems: 'center',
+                }}
+              >
+                <span>
+                  {getPositionLabel(player.position)} · {player.name}
+                </span>
+
+                <span className="small">{getPlayerAbr(player)}</span>
+              </button>
+            );
+          })}
+
+          {filteredPlayers.length === 0 && (
+            <p className="small">Aucun joueur trouvé.</p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   const lastGroupJ1Date = getLastGroupJ1MatchDate();
   const lastGroupDate = new Date('2026-06-28T00:00:00+02:00');
   const firstRoundOf32Date = new Date('2026-06-29T18:00:00+02:00');
@@ -487,22 +704,11 @@ export default function ChampionPage() {
                 devient champion.
               </p>
 
-              <p className="small">
-                Si tu choisis la même équipe aux deux moments, tu restes
-                éligible uniquement aux +20 points.
-              </p>
-
               <hr style={{ opacity: 0.15, width: '100%' }} />
 
               <p>
-                <strong>🏅 Trophées individuels :</strong> meilleur joueur,
-                meilleur buteur, meilleur passeur et meilleur gardien doivent
-                être pronostiqués avant le premier match.
-              </p>
-
-              <p>
-                <strong>Récompense :</strong> +10 points par trophée individuel
-                correctement pronostiqué, soit jusqu’à +40 points bonus.
+                <strong>🏅 Trophées individuels :</strong> +10 points par
+                trophée correctement pronostiqué, soit jusqu’à +40 points bonus.
               </p>
 
               <p className="small">
@@ -515,17 +721,7 @@ export default function ChampionPage() {
             <h2>🏅 Pronostics trophées individuels</h2>
 
             <p className="small">
-              Ces pronostics doivent être encodés avant le premier match de la
-              compétition.
-            </p>
-
-            <p className="small">
-              Barème : +10 points par bon pronostic, soit jusqu’à 40 points
-              bonus.
-            </p>
-
-            <p className="small">
-              Verrouillage prévu : {formatDate(firstMatchDate)}
+              Tu peux filtrer par pays ou rechercher directement un joueur.
             </p>
 
             {awardPrediction?.locked_at && (
@@ -536,73 +732,10 @@ export default function ChampionPage() {
             )}
 
             <div className="grid">
-              <div>
-                <label>Meilleur joueur de la CDM</label>
-                <select
-                  disabled={!canEditAwardPredictions()}
-                  value={bestPlayerId}
-                  onChange={(e) => setBestPlayerId(e.target.value)}
-                >
-                  <option value="">Aucune sélection</option>
-
-                  {players.map((player) => (
-                    <option key={player.id} value={player.id}>
-                      {getPlayerLabel(player)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label>Meilleur buteur</label>
-                <select
-                  disabled={!canEditAwardPredictions()}
-                  value={topScorerId}
-                  onChange={(e) => setTopScorerId(e.target.value)}
-                >
-                  <option value="">Aucune sélection</option>
-
-                  {players.map((player) => (
-                    <option key={player.id} value={player.id}>
-                      {getPlayerLabel(player)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label>Meilleur passeur</label>
-                <select
-                  disabled={!canEditAwardPredictions()}
-                  value={topAssistId}
-                  onChange={(e) => setTopAssistId(e.target.value)}
-                >
-                  <option value="">Aucune sélection</option>
-
-                  {players.map((player) => (
-                    <option key={player.id} value={player.id}>
-                      {getPlayerLabel(player)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label>Meilleur gardien</label>
-                <select
-                  disabled={!canEditAwardPredictions()}
-                  value={bestGoalkeeperId}
-                  onChange={(e) => setBestGoalkeeperId(e.target.value)}
-                >
-                  <option value="">Aucune sélection</option>
-
-                  {goalkeepers.map((player) => (
-                    <option key={player.id} value={player.id}>
-                      {getPlayerLabel(player)}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {renderAwardSelector('Meilleur joueur de la CDM', 'best_player')}
+              {renderAwardSelector('Meilleur buteur', 'top_scorer')}
+              {renderAwardSelector('Meilleur passeur', 'top_assist')}
+              {renderAwardSelector('Meilleur gardien', 'best_goalkeeper')}
             </div>
 
             <button
@@ -711,6 +844,14 @@ export default function ChampionPage() {
                 : 'Champion après groupes'}
             </h2>
 
+            <label>Rechercher un pays</label>
+            <input
+              type="text"
+              placeholder="Écris Belgique, FRA, Brésil..."
+              value={teamSearch}
+              onChange={(e) => setTeamSearch(e.target.value)}
+            />
+
             {teams.length === 0 ? (
               <p className="error">
                 Aucune équipe chargée. Vérifie que la table teams est accessible
@@ -722,9 +863,10 @@ export default function ChampionPage() {
                   display: 'grid',
                   gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
                   gap: 12,
+                  marginTop: 14,
                 }}
               >
-                {teams.map((team) => {
+                {filteredTeams.map((team) => {
                   const flagUrl = getFlagUrl(team);
                   const selected = getCurrentSelectedTeamId() === team.id;
 
