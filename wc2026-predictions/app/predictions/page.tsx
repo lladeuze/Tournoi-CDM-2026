@@ -381,8 +381,8 @@ function getFlagUrl(team: Team | null, fallbackName: string) {
   .select('id, team_id, name, active, team_abr, position, position_order')
   .in('team_id', teamIds)
   .or('active.eq.true,active.is.null')
-  .order('team_abr', { ascending: true })
   .order('position_order', { ascending: true })
+  .order('team_abr', { ascending: true })
   .order('name', { ascending: true })
   .range(0, 200);
 
