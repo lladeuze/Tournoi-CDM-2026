@@ -428,3 +428,48 @@ th {
     margin-bottom: 10px;
   }
 }
+
+
+
+
+
+.match-header {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 12px;
+}
+
+.team-side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.score-box {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+@media (max-width: 600px) {
+  .match-header {
+    grid-template-columns: 1fr auto 1fr;
+    gap: 8px;
+  }
+
+  .team-side {
+    min-width: 0;
+  }
+
+  .team-code {
+    font-size: 0.78rem;
+    line-height: 1.1;
+    word-break: break-word;
+  }
+
+  .team-flag img {
+    max-width: 54px;
+  }
+}
