@@ -821,26 +821,50 @@ export default function PredictionsPage() {
             style={{ justifyContent: 'center', marginBottom: 14 }}
           >
             <input
-              disabled={readOnly}
-              type="number"
-              min="0"
-              value={p?.predicted_home_score ?? 0}
-              onChange={(e) =>
-                update(match, 'predicted_home_score', e.target.value)
-              }
-            />
+  disabled={readOnly}
+  type="number"
+  min="0"
+  max="15"
+  inputMode="numeric"
+  placeholder="0"
+  value={p?.predicted_home_score ?? ''}
+  onFocus={(e) => {
+    if (e.target.value === '0') {
+      e.target.value = '';
+    }
+  }}
+  onChange={(e) =>
+    update(
+      match,
+      'predicted_home_score',
+      e.target.value === '' ? '0' : e.target.value
+    )
+  }
+/>
 
-            <div className="score-separator">-</div>
+<div className="score-separator">-</div>
 
-            <input
-              disabled={readOnly}
-              type="number"
-              min="0"
-              value={p?.predicted_away_score ?? 0}
-              onChange={(e) =>
-                update(match, 'predicted_away_score', e.target.value)
-              }
-            />
+<input
+  disabled={readOnly}
+  type="number"
+  min="0"
+  max="15"
+  inputMode="numeric"
+  placeholder="0"
+  value={p?.predicted_away_score ?? ''}
+  onFocus={(e) => {
+    if (e.target.value === '0') {
+      e.target.value = '';
+    }
+  }}
+  onChange={(e) =>
+    update(
+      match,
+      'predicted_away_score',
+      e.target.value === '' ? '0' : e.target.value
+    )
+  }
+/>
           </div>
 
           <div className="compact-row">
