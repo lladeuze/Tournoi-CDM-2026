@@ -56,6 +56,7 @@ export default function TournamentAwards() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
+  const [openAwardKey, setOpenAwardKey] = useState<AwardKey | null>(null);
 
   const [values, setValues] = useState<Record<AwardKey, string>>({
     best_player_id: '',
@@ -156,7 +157,11 @@ export default function TournamentAwards() {
   }, [teams]);
 
   function getPlayerAbr(player: Player) {
-    return player.team_abr || (player.team_id ? teams[player.team_id]?.code : null) || '---';
+    return (
+      player.team_abr ||
+      (player.team_id ? teams[player.team_id]?.code : null) ||
+      '---'
+    );
   }
 
   function getSelectedPlayerLabel(playerId: string) {
@@ -166,7 +171,9 @@ export default function TournamentAwards() {
 
     if (!player) return 'Joueur introuvable';
 
-    return `${getPositionLabel(player.position)} · ${player.name} — ${getPlayerAbr(player)}`;
+    return `${getPositionLabel(player.position)} · ${
+      player.name
+    } — ${getPlayerAbr(player)}`;
   }
 
   function getFilteredPlayers(awardKey: AwardKey) {
@@ -233,102 +240,126 @@ export default function TournamentAwards() {
   function renderAwardSelector(awardKey: AwardKey) {
     const filteredPlayers = getFilteredPlayers(awardKey);
     const selectedId = values[awardKey];
+    const isOpen = openAwardKey === awardKey;
 
     return (
       <div
         style={{
           border: '1px solid rgba(255,255,255,0.12)',
           borderRadius: 16,
-          padding: 14,
-          background: 'rgba(255,255,255,0.03)',
+          padding: 18,
+          background: 'rgba(15,23,42,0.75)',
         }}
       >
         <h3 style={{ marginTop: 0 }}>{awardLabels[awardKey]}</h3>
 
-        <p className="small">
-          Sélection actuelle : <strong>{getSelectedPlayerLabel(selectedId)}</strong>
-        </p>
+        {selectedId ? (
+          <p>
+            ✅ <strong>{getSelectedPlayerLabel(selectedId)}</strong>
+          </p>
+        ) : (
+          <p className="small">Aucun joueur sélectionné.</p>
+        )}
 
-        <label>Pays / équipe</label>
-        <select
-          value={teamFilterByAward[awardKey]}
-          onChange={(e) =>
-            setTeamFilterByAward((current) => ({
-              ...current,
-              [awardKey]: e.target.value,
-            }))
-          }
+        <button
+          type="button"
+          onClick={() => setOpenAwardKey(isOpen ? null : awardKey)}
+          style={{ width: '100%', marginTop: 12 }}
         >
-          <option value="">Tous les pays</option>
+          {isOpen ? 'Fermer la sélection' : 'Choisir le joueur'}
+        </button>
 
-          {teamsList.map((team) => (
-            <option key={team.id} value={team.id}>
-              {team.code || '---'} — {team.name}
-            </option>
-          ))}
-        </select>
+        {isOpen && (
+          <div style={{ marginTop: 16 }}>
+            <label>Pays / équipe</label>
+            <select
+              value={teamFilterByAward[awardKey]}
+              onChange={(e) =>
+                setTeamFilterByAward((current) => ({
+                  ...current,
+                  [awardKey]: e.target.value,
+                }))
+              }
+            >
+              <option value="">Tous les pays</option>
 
-        <label>Rechercher un joueur</label>
-        <input
-          type="text"
-          placeholder="Nom, pays, code ou poste..."
-          value={searchByAward[awardKey]}
-          onChange={(e) =>
-            setSearchByAward((current) => ({
-              ...current,
-              [awardKey]: e.target.value,
-            }))
-          }
-        />
+              {teamsList.map((team) => (
+                <option key={team.id} value={team.id}>
+                  {team.code || '---'} — {team.name}
+                </option>
+              ))}
+            </select>
 
-        <div
-          style={{
-            display: 'grid',
-            gap: 6,
-            maxHeight: 280,
-            overflowY: 'auto',
-            marginTop: 12,
-          }}
-        >
-          <button
-            type="button"
-            className={!selectedId ? '' : 'secondary'}
-            onClick={() => updateAwardValue(awardKey, '')}
-            style={{ textAlign: 'left' }}
-          >
-            Aucune sélection
-          </button>
+            <label>Rechercher un joueur</label>
+            <input
+              type="text"
+              placeholder="Nom, pays, code ou poste..."
+              value={searchByAward[awardKey]}
+              onChange={(e) =>
+                setSearchByAward((current) => ({
+                  ...current,
+                  [awardKey]: e.target.value,
+                }))
+              }
+            />
 
-          {filteredPlayers.map((player) => {
-            const selected = selectedId === player.id;
-
-            return (
+            <div
+              style={{
+                display: 'grid',
+                gap: 6,
+                maxHeight: 280,
+                overflowY: 'auto',
+                marginTop: 12,
+              }}
+            >
               <button
-                key={player.id}
                 type="button"
-                className={selected ? '' : 'secondary'}
-                onClick={() => updateAwardValue(awardKey, player.id)}
-                style={{
-                  textAlign: 'left',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  gap: 12,
-                  alignItems: 'center',
+                className={!selectedId ? '' : 'secondary'}
+                onClick={() => {
+                  updateAwardValue(awardKey, '');
+                  setOpenAwardKey(null);
                 }}
+                style={{ textAlign: 'left' }}
               >
-                <span>
-                  {getPositionLabel(player.position)} · {player.name}
-                </span>
-
-                <span className="small">{getPlayerAbr(player)}</span>
+                Aucune sélection
               </button>
-            );
-          })}
 
-          {filteredPlayers.length === 0 && (
-            <p className="small">Aucun joueur trouvé.</p>
-          )}
-        </div>
+              {filteredPlayers.map((player) => {
+                const selected = selectedId === player.id;
+
+                return (
+                  <button
+                    key={player.id}
+                    type="button"
+                    className={selected ? '' : 'secondary'}
+                    onClick={() => {
+                      updateAwardValue(awardKey, player.id);
+                      setOpenAwardKey(null);
+                    }}
+                    style={{
+                      textAlign: 'left',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      gap: 12,
+                      alignItems: 'center',
+                    }}
+                  >
+                    <span>
+                      {selected ? '✅ ' : ''}
+                      {getPositionLabel(player.position)} · {player.name}
+                    </span>
+
+                    <span className="small">{getPlayerAbr(player)}</span>
+                  </button>
+                );
+              })}
+
+              {filteredPlayers.length === 0 && (
+                <p className="small">Aucun joueur trouvé.</p>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     );
   }
