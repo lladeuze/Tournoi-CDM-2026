@@ -42,7 +42,7 @@ type AwardPrediction = {
   user_id: string;
   best_player_id: string | null;
   top_scorer_id: string | null;
-  top_assist_id: string | null;
+  top_assister_id: string | null;
   best_goalkeeper_id: string | null;
   locked_at: string | null;
 };
@@ -277,7 +277,7 @@ export default function ChampionPage() {
       setAwardPrediction(awardData as AwardPrediction);
       setBestPlayerId(awardData.best_player_id || '');
       setTopScorerId(awardData.top_scorer_id || '');
-      setTopAssistId(awardData.top_assist_id || '');
+      setTopAssistId(awardData.top_assister_id || '');
       setBestGoalkeeperId(awardData.best_goalkeeper_id || '');
     }
 
@@ -523,7 +523,7 @@ export default function ChampionPage() {
         user_id: userId,
         best_player_id: bestPlayerId || null,
         top_scorer_id: topScorerId || null,
-        top_assist_id: topAssistId || null,
+        top_assister_id: topAssistId || null,
         best_goalkeeper_id: bestGoalkeeperId || null,
         updated_at: new Date().toISOString(),
       },
