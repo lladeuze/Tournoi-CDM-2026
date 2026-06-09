@@ -24,7 +24,7 @@ type TournamentSettings = {
   winner_team_id: string | null;
   best_player_id: string | null;
   top_scorer_id: string | null;
-  top_assister_id: string | null;
+  top_assist_points: string | null;
   best_goalkeeper_id: string | null;
   updated_at: string | null;
 };
@@ -32,13 +32,13 @@ type TournamentSettings = {
 type AwardKey =
   | 'best_player_id'
   | 'top_scorer_id'
-  | 'top_assister_id'
+  | 'top_assist_points'
   | 'best_goalkeeper_id';
 
 const awardLabels: Record<AwardKey, string> = {
   best_player_id: 'Meilleur joueur',
   top_scorer_id: 'Meilleur buteur',
-  top_assister_id: 'Meilleur passeur',
+  top_assist_points: 'Meilleur passeur',
   best_goalkeeper_id: 'Meilleur gardien',
 };
 
@@ -60,14 +60,14 @@ export default function TournamentAwards() {
   const [values, setValues] = useState<Record<AwardKey, string>>({
     best_player_id: '',
     top_scorer_id: '',
-    top_assister_id: '',
+    top_assist_points: '',
     best_goalkeeper_id: '',
   });
 
   const [searchByAward, setSearchByAward] = useState<Record<AwardKey, string>>({
     best_player_id: '',
     top_scorer_id: '',
-    top_assister_id: '',
+    top_assist_points: '',
     best_goalkeeper_id: '',
   });
 
@@ -76,7 +76,7 @@ export default function TournamentAwards() {
   >({
     best_player_id: '',
     top_scorer_id: '',
-    top_assister_id: '',
+    top_assist_points: '',
     best_goalkeeper_id: '',
   });
 
@@ -96,7 +96,7 @@ export default function TournamentAwards() {
       supabase
         .from('tournament_settings')
         .select(
-          'id, winner_team_id, best_player_id, top_scorer_id, top_assister_id, best_goalkeeper_id, updated_at'
+          'id, winner_team_id, best_player_id, top_scorer_id, top_assist_points, best_goalkeeper_id, updated_at'
         )
         .eq('id', 1)
         .maybeSingle(),
@@ -143,7 +143,7 @@ export default function TournamentAwards() {
       setValues({
         best_player_id: settingsData.best_player_id || '',
         top_scorer_id: settingsData.top_scorer_id || '',
-        top_assister_id: settingsData.top_assister_id || '',
+        top_assist_points: settingsData.top_assist_points || '',
         best_goalkeeper_id: settingsData.best_goalkeeper_id || '',
       });
     }
@@ -214,7 +214,7 @@ export default function TournamentAwards() {
         winner_team_id: settings?.winner_team_id || null,
         best_player_id: values.best_player_id || null,
         top_scorer_id: values.top_scorer_id || null,
-        top_assister_id: values.top_assister_id || null,
+        top_assist_points: values.top_assist_points || null,
         best_goalkeeper_id: values.best_goalkeeper_id || null,
         updated_at: new Date().toISOString(),
       },
@@ -355,7 +355,7 @@ export default function TournamentAwards() {
           <div className="grid">
             {renderAwardSelector('best_player_id')}
             {renderAwardSelector('top_scorer_id')}
-            {renderAwardSelector('top_assister_id')}
+            {renderAwardSelector('top_assist_points')}
             {renderAwardSelector('best_goalkeeper_id')}
           </div>
 
