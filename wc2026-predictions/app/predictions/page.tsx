@@ -3,6 +3,26 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
+import {
+  IconChevronLeft,
+  IconChevronRight,
+  IconPlus,
+  IconMinus,
+  IconMatches,
+  IconTrophy,
+} from '@/app/components/icons';
+import ScorerPicker from '@/app/components/ScorerPicker';
+import Countdown from '@/app/components/Countdown';
+import { SkeletonCards } from '@/app/components/Skeleton';
+import EmptyState from '@/app/components/EmptyState';
+import OtherPredictionsList from '@/app/components/OtherPredictionsList';
+import { useToast } from '@/app/components/Toast';
+import { flagsByCode, teamCodeFromName, teamFlagUrl } from '@/lib/flags';
+import {
+  phaseLabels,
+  bonusAllowedPhases,
+  positionLabel as getPositionLabel,
+} from '@/lib/phases';
 
 type Team = {
   id: string;
@@ -37,6 +57,9 @@ type Match = {
   status: string;
   phase: string;
   match_label: string | null;
+  home_score?: number | null;
+  away_score?: number | null;
+  first_scorer?: string | null;
 };
 
 type Prediction = {
@@ -62,77 +85,6 @@ type OtherPrediction = {
 
 type ViewMode = 'upcoming' | 'history';
 
-const phaseLabels: Record<string, string> = {
-  group_j1: 'Poules J1',
-  group_j2: 'Poules J2',
-  group_j3: 'Poules J3',
-  round_of_32: '16es de finale',
-  round_of_16: '8es de finale',
-  quarter: 'Quarts de finale',
-  semi: 'Demi-finales',
-  final: 'Finale',
-};
-
-const bonusAllowedPhases = [
-  'group_j1',
-  'group_j2',
-  'group_j3',
-  'round_of_32',
-  'round_of_16',
-  'quarter',
-];
-
-const flagsByCode: Record<string, string> = {
-  MEX: 'mx',
-  RSA: 'za',
-  KOR: 'kr',
-  CZE: 'cz',
-  CAN: 'ca',
-  BIH: 'ba',
-  QAT: 'qa',
-  SUI: 'ch',
-  BRA: 'br',
-  MAR: 'ma',
-  HAI: 'ht',
-  SCO: 'gb-sct',
-  USA: 'us',
-  PAR: 'py',
-  AUS: 'au',
-  TUR: 'tr',
-  GER: 'de',
-  CUW: 'cw',
-  CIV: 'ci',
-  ECU: 'ec',
-  NED: 'nl',
-  JPN: 'jp',
-  SWE: 'se',
-  TUN: 'tn',
-  BEL: 'be',
-  EGY: 'eg',
-  IRN: 'ir',
-  NZL: 'nz',
-  ESP: 'es',
-  CPV: 'cv',
-  KSA: 'sa',
-  URU: 'uy',
-  FRA: 'fr',
-  SEN: 'sn',
-  IRQ: 'iq',
-  NOR: 'no',
-  ARG: 'ar',
-  ALG: 'dz',
-  AUT: 'at',
-  JOR: 'jo',
-  POR: 'pt',
-  COD: 'cd',
-  UZB: 'uz',
-  COL: 'co',
-  ENG: 'gb-eng',
-  CRO: 'hr',
-  GHA: 'gh',
-  PAN: 'pa',
-};
-
 function toDateKey(date: Date) {
   return date.toISOString().slice(0, 10);
 }
@@ -150,14 +102,6 @@ function formatDateTitle(date: Date) {
     month: 'long',
     year: 'numeric',
   });
-}
-
-function getPositionLabel(position: string | null) {
-  if (position === 'ATT') return '⚽ ATT';
-  if (position === 'MID') return '🎯 MID';
-  if (position === 'DEF') return '🛡 DEF';
-  if (position === 'GK') return '🧤 GK';
-  return '❔';
 }
 
 export default function PredictionsPage() {
@@ -179,6 +123,10 @@ export default function PredictionsPage() {
   const [openedPredictionsMatchId, setOpenedPredictionsMatchId] = useState<string | null>(null);
   const [otherPredictions, setOtherPredictions] = useState<OtherPrediction[]>([]);
   const [loadingOtherPredictions, setLoadingOtherPredictions] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [savingMatchId, setSavingMatchId] = useState<string | null>(null);
+
+  const toast = useToast();
 
   useEffect(() => {
     load();
@@ -190,6 +138,7 @@ export default function PredictionsPage() {
 
     if (!user) {
       setMessage('Connecte-toi pour encoder tes pronostics.');
+      setLoading(false);
       return;
     }
 
@@ -222,7 +171,7 @@ export default function PredictionsPage() {
     if (teamsError) return setMessage(`Erreur équipes: ${teamsError.message}`);
     if (leaguesError) return setMessage(`Erreur ligues: ${leaguesError.message}`);
 
-    const loadedMatches = matchesData || [];
+    const loadedMatches = (matchesData || []) as Match[];
     setMatches(loadedMatches);
 
     const teamsById: Record<string, Team> = {};
@@ -264,6 +213,8 @@ export default function PredictionsPage() {
 
       return firstUpcoming ? new Date(firstUpcoming.kickoff_at) : currentDate;
     });
+
+    setLoading(false);
   }
 
   const upcomingMatches = useMemo(() => {
@@ -314,68 +265,11 @@ export default function PredictionsPage() {
   }
 
   function getTeamCodeByName(teamName: string) {
-    const normalizedName = teamName.trim().toLowerCase();
-
-    const codeByName: Record<string, string> = {
-      'mexique': 'MEX',
-      'afrique du sud': 'RSA',
-      'corée du sud': 'KOR',
-      'tchéquie': 'CZE',
-      'canada': 'CAN',
-      'bosnie-herzégovine': 'BIH',
-      'qatar': 'QAT',
-      'suisse': 'SUI',
-      'brésil': 'BRA',
-      'maroc': 'MAR',
-      'haïti': 'HAI',
-      'écosse': 'SCO',
-      'états-unis': 'USA',
-      'paraguay': 'PAR',
-      'australie': 'AUS',
-      'turquie': 'TUR',
-      'allemagne': 'GER',
-      'curaçao': 'CUW',
-      "côte d'ivoire": 'CIV',
-      'équateur': 'ECU',
-      'pays-bas': 'NED',
-      'japon': 'JPN',
-      'suède': 'SWE',
-      'tunisie': 'TUN',
-      'belgique': 'BEL',
-      'égypte': 'EGY',
-      'iran': 'IRN',
-      'nouvelle-zélande': 'NZL',
-      'espagne': 'ESP',
-      'cap-vert': 'CPV',
-      'arabie saoudite': 'KSA',
-      'uruguay': 'URU',
-      'france': 'FRA',
-      'sénégal': 'SEN',
-      'irak': 'IRQ',
-      'norvège': 'NOR',
-      'argentine': 'ARG',
-      'algérie': 'ALG',
-      'autriche': 'AUT',
-      'jordanie': 'JOR',
-      'portugal': 'POR',
-      'rd congo': 'COD',
-      'ouzbékistan': 'UZB',
-      'ouzbekistan': 'UZB',
-      'colombie': 'COL',
-      'angleterre': 'ENG',
-      'croatie': 'CRO',
-      'ghana': 'GHA',
-      'panama': 'PAN',
-    };
-
-    return codeByName[normalizedName] || null;
+    return teamCodeFromName(teamName);
   }
 
   function getFlagUrl(team: Team | null, fallbackName: string) {
-    const code = team?.code || getTeamCodeByName(fallbackName);
-    const flagCode = code ? flagsByCode[code.trim().toUpperCase()] : null;
-
-    return flagCode ? `https://flagcdn.com/w160/${flagCode}.png` : null;
+    return teamFlagUrl(team, fallbackName);
   }
 
   function getMatchPlayers(match: Match) {
@@ -435,7 +329,7 @@ export default function PredictionsPage() {
       return;
     }
 
-    const sortedPlayers = (data || []).sort((a: Player, b: Player) => {
+    const sortedPlayers = ((data || []) as Player[]).sort((a, b) => {
       const orderA = a.position_order ?? 99;
       const orderB = b.position_order ?? 99;
 
@@ -557,13 +451,13 @@ export default function PredictionsPage() {
     if (!userId) return;
 
     if (new Date(match.kickoff_at).getTime() <= Date.now()) {
-      return setMessage('Trop tard : le match a déjà commencé.');
+      return toast.error('Trop tard : le match a déjà commencé.');
     }
 
     const p = predictions[match.id];
 
     if (!p) {
-      return setMessage('Encode un score avant de sauver.');
+      return toast.error('Encode un score avant de sauver.');
     }
 
     const wantsBonus = p.double_bonus;
@@ -574,7 +468,7 @@ export default function PredictionsPage() {
       bonusAlreadyUsedForPhase &&
       bonusAlreadyUsedForPhase !== match.id
     ) {
-      return setMessage(
+      return toast.error(
         `Tu as déjà utilisé ton bonus x2 pour ${
           phaseLabels[match.phase] || match.phase
         }.`
@@ -582,8 +476,10 @@ export default function PredictionsPage() {
     }
 
     if (wantsBonus && !bonusAllowedPhases.includes(match.phase)) {
-      return setMessage('Le bonus x2 n’est pas disponible pour cette phase.');
+      return toast.error('Le bonus x2 n’est pas disponible pour cette phase.');
     }
+
+    setSavingMatchId(match.id);
 
     const { error } = await supabase.from('predictions').upsert(
       {
@@ -600,10 +496,12 @@ export default function PredictionsPage() {
       { onConflict: 'user_id,match_id' }
     );
 
+    setSavingMatchId(null);
+
     if (error) {
-      setMessage(error.message);
+      toast.error(error.message);
     } else {
-      setMessage('Prono sauvegardé.');
+      toast.success('Prono sauvegardé ✓');
       load();
     }
   }
@@ -616,50 +514,12 @@ export default function PredictionsPage() {
         </h2>
 
         {loadingOtherPredictions ? (
-          <p>Chargement des pronos...</p>
-        ) : otherPredictions.length === 0 ? (
-          <p>Aucun prono disponible pour cette ligue.</p>
+          <p className="small">Chargement des pronos...</p>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table
-              style={{
-                width: '100%',
-                borderCollapse: 'collapse',
-              }}
-            >
-              <thead>
-                <tr>
-                  <th style={{ textAlign: 'left', padding: 8 }}>Joueur</th>
-                  <th style={{ textAlign: 'left', padding: 8 }}>Score</th>
-                  <th style={{ textAlign: 'left', padding: 8 }}>1ère équipe</th>
-                  <th style={{ textAlign: 'left', padding: 8 }}>1er buteur</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {otherPredictions.map((prediction) => (
-                  <tr key={prediction.user_id}>
-                    <td style={{ padding: 8 }}>
-                      {prediction.username || 'Utilisateur'}
-                    </td>
-
-                    <td style={{ padding: 8 }}>
-                      {prediction.predicted_home_score ?? '-'} -{' '}
-                      {prediction.predicted_away_score ?? '-'}
-                    </td>
-
-                    <td style={{ padding: 8 }}>
-                      {getTeamName(prediction.predicted_first_scoring_team_id)}
-                    </td>
-
-                    <td style={{ padding: 8 }}>
-                      {prediction.predicted_first_scorer || '-'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <OtherPredictionsList
+            predictions={otherPredictions}
+            teamName={getTeamName}
+          />
         )}
       </div>
     );
@@ -717,30 +577,36 @@ export default function PredictionsPage() {
 
           <div className="prediction-badges">
             {!p && mode === 'upcoming' && (
-              <span className="badge pending">🟡 À pronostiquer</span>
+              <span className="badge pending">À pronostiquer</span>
             )}
 
             {p && mode === 'upcoming' && !readOnly && (
-              <span className="badge saved">✅ Enregistré</span>
+              <span className="badge saved">Enregistré</span>
             )}
 
             {readOnly && mode === 'upcoming' && (
-              <span className="badge locked">🔒 Verrouillé</span>
+              <span className="badge locked">Verrouillé</span>
             )}
 
             {mode === 'history' && (
-              <span className="badge finished">🏁 Résultat disponible</span>
+              <span className="badge finished">Résultat disponible</span>
             )}
 
-            {p?.double_bonus && <span className="badge fire">🔥 BONUS x2</span>}
+            {p?.double_bonus && <span className="badge fire">Bonus ×2</span>}
 
-            {p?.points >= 11 && <span className="badge perfect">🏆 PERFECT</span>}
+            {p?.points >= 11 && <span className="badge perfect">Perfect</span>}
           </div>
 
           <p className="small">
             {phaseLabels[match.phase] || match.phase} ·{' '}
             {new Date(match.kickoff_at).toLocaleString('fr-BE')}
           </p>
+
+          {mode === 'upcoming' && !locked && (
+            <p style={{ margin: '0 0 6px' }}>
+              <Countdown kickoffAt={match.kickoff_at} />
+            </p>
+          )}
 
           {match.match_label && (
             <div
@@ -749,14 +615,14 @@ export default function PredictionsPage() {
                 margin: '0 auto 14px auto',
                 padding: '6px 14px',
                 borderRadius: 999,
-                background: 'rgba(94,234,212,0.15)',
-                border: '1px solid rgba(94,234,212,0.3)',
-                color: '#5eead4',
+                background: 'color-mix(in srgb, var(--gold) 16%, transparent)',
+                border: '1px solid color-mix(in srgb, var(--gold) 30%, transparent)',
+                color: 'var(--gold)',
                 fontWeight: 800,
                 fontSize: '0.9rem',
               }}
             >
-              🏆 {match.match_label}
+              {match.match_label}
             </div>
           )}
 
@@ -786,7 +652,18 @@ export default function PredictionsPage() {
               <div className="team-code">{homeTeam?.name || match.home_team}</div>
             </div>
 
-            <div style={{ fontWeight: 900, fontSize: 24, color: '#5eead4' }}>
+            <div
+              style={{
+                fontWeight: 800,
+                fontSize: 13,
+                letterSpacing: '0.08em',
+                color: 'var(--muted)',
+                padding: '6px 10px',
+                borderRadius: 999,
+                background: 'var(--surface-2)',
+                border: '1px solid var(--border)',
+              }}
+            >
               VS
             </div>
 
@@ -816,56 +693,138 @@ export default function PredictionsPage() {
             </div>
           </div>
 
-          <div
-            className="score-box"
-            style={{ justifyContent: 'center', marginBottom: 14 }}
-          >
-            <input
-  disabled={readOnly}
-  type="number"
-  min="0"
-  max="15"
-  inputMode="numeric"
-  placeholder="0"
-  value={p?.predicted_home_score ?? ''}
-  onFocus={(e) => {
-    if (e.target.value === '0') {
-      e.target.value = '';
-    }
-  }}
-  onChange={(e) =>
-    update(
-      match,
-      'predicted_home_score',
-      e.target.value === '' ? '0' : e.target.value
-    )
-  }
-/>
+          {mode === 'history' && (
+            <div className="compare">
+              <div className="compare-box">
+                <div className="lbl">Ton prono</div>
+                <div className="val">
+                  {p?.predicted_home_score ?? '-'} – {p?.predicted_away_score ?? '-'}
+                </div>
+              </div>
+              <div className="compare-box result">
+                <div className="lbl">Résultat</div>
+                <div className="val">
+                  {match.home_score ?? '-'} – {match.away_score ?? '-'}
+                </div>
+              </div>
+            </div>
+          )}
 
-<div className="score-separator">-</div>
+          {mode !== 'history' && (
+          <div className="score-row">
+            <div className="stepper">
+              <button
+                type="button"
+                className="step-btn"
+                aria-label="Moins"
+                disabled={readOnly || (p?.predicted_home_score ?? 0) <= 0}
+                onClick={() =>
+                  update(
+                    match,
+                    'predicted_home_score',
+                    String(Math.max(0, (p?.predicted_home_score ?? 0) - 1))
+                  )
+                }
+              >
+                <IconMinus size={18} />
+              </button>
 
-<input
-  disabled={readOnly}
-  type="number"
-  min="0"
-  max="15"
-  inputMode="numeric"
-  placeholder="0"
-  value={p?.predicted_away_score ?? ''}
-  onFocus={(e) => {
-    if (e.target.value === '0') {
-      e.target.value = '';
-    }
-  }}
-  onChange={(e) =>
-    update(
-      match,
-      'predicted_away_score',
-      e.target.value === '' ? '0' : e.target.value
-    )
-  }
-/>
+              <input
+                className="step-val"
+                disabled={readOnly}
+                type="number"
+                min="0"
+                max="20"
+                inputMode="numeric"
+                placeholder="0"
+                value={p?.predicted_home_score ?? ''}
+                onFocus={(e) => {
+                  if (e.target.value === '0') e.target.value = '';
+                }}
+                onChange={(e) =>
+                  update(
+                    match,
+                    'predicted_home_score',
+                    e.target.value === '' ? '0' : e.target.value
+                  )
+                }
+              />
+
+              <button
+                type="button"
+                className="step-btn"
+                aria-label="Plus"
+                disabled={readOnly || (p?.predicted_home_score ?? 0) >= 20}
+                onClick={() =>
+                  update(
+                    match,
+                    'predicted_home_score',
+                    String(Math.min(20, (p?.predicted_home_score ?? 0) + 1))
+                  )
+                }
+              >
+                <IconPlus size={18} />
+              </button>
+            </div>
+
+            <span className="score-dash">–</span>
+
+            <div className="stepper">
+              <button
+                type="button"
+                className="step-btn"
+                aria-label="Moins"
+                disabled={readOnly || (p?.predicted_away_score ?? 0) <= 0}
+                onClick={() =>
+                  update(
+                    match,
+                    'predicted_away_score',
+                    String(Math.max(0, (p?.predicted_away_score ?? 0) - 1))
+                  )
+                }
+              >
+                <IconMinus size={18} />
+              </button>
+
+              <input
+                className="step-val"
+                disabled={readOnly}
+                type="number"
+                min="0"
+                max="20"
+                inputMode="numeric"
+                placeholder="0"
+                value={p?.predicted_away_score ?? ''}
+                onFocus={(e) => {
+                  if (e.target.value === '0') e.target.value = '';
+                }}
+                onChange={(e) =>
+                  update(
+                    match,
+                    'predicted_away_score',
+                    e.target.value === '' ? '0' : e.target.value
+                  )
+                }
+              />
+
+              <button
+                type="button"
+                className="step-btn"
+                aria-label="Plus"
+                disabled={readOnly || (p?.predicted_away_score ?? 0) >= 20}
+                onClick={() =>
+                  update(
+                    match,
+                    'predicted_away_score',
+                    String(Math.min(20, (p?.predicted_away_score ?? 0) + 1))
+                  )
+                }
+              >
+                <IconPlus size={18} />
+              </button>
+            </div>
           </div>
+          )}
 
           <div className="compact-row">
             <div>
@@ -896,133 +855,45 @@ export default function PredictionsPage() {
             <div>
               <label>Premier buteur</label>
 
-              <div style={{ position: 'relative' }}>
-                <button
-                  type="button"
-                  disabled={readOnly}
-                  onClick={() => openScorerDropdown(match)}
-                  style={{
-                    width: '100%',
-                    textAlign: 'left',
-                    border: '1px solid rgba(255,255,255,0.14)',
-                    background: 'rgba(15,23,42,0.9)',
-                    color: 'white',
-                    borderRadius: 10,
-                    padding: '12px 14px',
-                    cursor: readOnly ? 'not-allowed' : 'pointer',
-                  }}
-                >
-                  {selectedScorerLabel}
-                  <span style={{ float: 'right' }}>⌄</span>
-                </button>
-
-                {scorerDropdownOpen && !readOnly && (
-                  <div
-                    style={{
-                      marginTop: 8,
-                      border: '1px solid rgba(255,255,255,0.14)',
-                      background: '#0f172a',
-                      borderRadius: 12,
-                      padding: 10,
-                      maxHeight: 320,
-                      overflow: 'hidden',
-                      boxShadow: '0 20px 40px rgba(0,0,0,0.35)',
-                    }}
-                  >
-                    <input
-                      autoFocus
-                      type="text"
-                      placeholder="Rechercher un joueur..."
-                      value={playerSearchByMatch[match.id] || ''}
-                      onChange={(e) =>
-                        setPlayerSearchByMatch((current) => ({
-                          ...current,
-                          [match.id]: e.target.value,
-                        }))
-                      }
-                      style={{ marginBottom: 8 }}
-                    />
-
-                    {loadingPlayersForMatch === match.id && (
-                      <p className="small">Chargement des joueurs...</p>
-                    )}
-
-                    <div
-                      style={{
-                        maxHeight: 230,
-                        overflowY: 'auto',
-                        display: 'grid',
-                        gap: 4,
-                      }}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => selectScorer(match, '')}
-                        style={{
-                          textAlign: 'left',
-                          background: 'rgba(255,255,255,0.06)',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: 8,
-                          padding: '9px 10px',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        Aucun buteur
-                      </button>
-
-                      {filteredAvailablePlayers.map((player) => (
-                        <button
-                          type="button"
-                          key={player.id}
-                          onClick={() => selectScorer(match, player.id)}
-                          style={{
-                            textAlign: 'left',
-                            background:
-                              p?.predicted_first_scorer_id === player.id
-                                ? 'rgba(94, 234, 212, 0.18)'
-                                : 'transparent',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: 8,
-                            padding: '9px 10px',
-                            cursor: 'pointer',
-                          }}
-                        >
-                          {getPositionLabel(player.position)} · {player.name} —{' '}
-                          {getPlayerAbr(player)}
-                        </button>
-                      ))}
-                    </div>
-
-                    <p className="small" style={{ marginTop: 8 }}>
-                      {filteredAvailablePlayers.length} joueur(s) affiché(s) sur{' '}
-                      {availablePlayers.length}
-                    </p>
-                  </div>
-                )}
-              </div>
+              <ScorerPicker
+                open={scorerDropdownOpen}
+                onToggle={() => openScorerDropdown(match)}
+                onClose={() => setOpenScorerForMatch(null)}
+                players={availablePlayers}
+                loading={loadingPlayersForMatch === match.id}
+                selectedId={p?.predicted_first_scorer_id ?? null}
+                selectedLabel={selectedScorerLabel}
+                disabled={readOnly}
+                onSelect={(id) => selectScorer(match, id)}
+                getLabel={(player) =>
+                  `${
+                    getPositionLabel(player.position)
+                      ? `${getPositionLabel(player.position)} · `
+                      : ''
+                  }${player.name} — ${getPlayerAbr(player)}`
+                }
+              />
             </div>
 
             {bonusAllowedPhases.includes(match.phase) && mode === 'upcoming' && (
-              <label
-                style={{
-                  display: 'flex',
-                  gap: 8,
-                  alignItems: 'center',
-                  marginTop: 10,
-                }}
+              <button
+                type="button"
+                className={`bonus-toggle${p?.double_bonus ? ' on' : ''}`}
+                disabled={readOnly || bonusUnavailable}
+                aria-pressed={p?.double_bonus ?? false}
+                onClick={() =>
+                  update(match, 'double_bonus', !(p?.double_bonus ?? false))
+                }
               >
-                <input
-                  type="checkbox"
-                  disabled={readOnly || bonusUnavailable}
-                  checked={p?.double_bonus ?? false}
-                  onChange={(e) => update(match, 'double_bonus', e.target.checked)}
-                  style={{ width: 'auto' }}
-                />
-
-                <span>{p?.double_bonus ? '🔥 Bonus x2 activé' : 'Bonus x2'}</span>
-              </label>
+                <span className="bonus-switch" aria-hidden="true" />
+                <span>
+                  {bonusUnavailable && !p?.double_bonus
+                    ? 'Bonus ×2 déjà utilisé cette phase'
+                    : p?.double_bonus
+                    ? 'Bonus ×2 activé'
+                    : 'Activer le bonus ×2'}
+                </span>
+              </button>
             )}
           </div>
 
@@ -1036,8 +907,17 @@ export default function PredictionsPage() {
             }}
           >
             {mode === 'upcoming' && (
-              <button disabled={readOnly} onClick={() => save(match)}>
-                {readOnly ? 'Verrouillé' : p ? 'Mettre à jour' : 'Sauvegarder'}
+              <button
+                disabled={readOnly || savingMatchId === match.id}
+                onClick={() => save(match)}
+              >
+                {savingMatchId === match.id
+                  ? 'Enregistrement…'
+                  : readOnly
+                  ? 'Verrouillé'
+                  : p
+                  ? 'Mettre à jour'
+                  : 'Sauvegarder'}
               </button>
             )}
 
@@ -1060,7 +940,7 @@ export default function PredictionsPage() {
     <main className="container">
       <h1>Mes pronostics</h1>
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+      <div className="segmented" style={{ marginBottom: 20 }}>
         <button
           type="button"
           onClick={() => {
@@ -1068,9 +948,9 @@ export default function PredictionsPage() {
             setOpenedPredictionsMatchId(null);
             setOtherPredictions([]);
           }}
-          className={viewMode === 'upcoming' ? '' : 'secondary'}
+          className={viewMode === 'upcoming' ? 'active' : ''}
         >
-          📅 À venir
+          À venir
         </button>
 
         <button
@@ -1080,17 +960,25 @@ export default function PredictionsPage() {
             setOpenedPredictionsMatchId(null);
             setOtherPredictions([]);
           }}
-          className={viewMode === 'history' ? '' : 'secondary'}
+          className={viewMode === 'history' ? 'active' : ''}
         >
-          🏁 Historique
+          Historique
         </button>
       </div>
 
       {leagues.length > 0 && (
-        <div className="card">
-          <h2>Filtre ligue</h2>
-
-          <label>Ligue</label>
+        <div
+          className="card"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            padding: 14,
+          }}
+        >
+          <span className="small" style={{ flexShrink: 0, fontWeight: 700 }}>
+            Ligue
+          </span>
           <select
             value={selectedLeagueId}
             onChange={(event) => {
@@ -1108,48 +996,40 @@ export default function PredictionsPage() {
         </div>
       )}
 
-      {message && (
-        <p className={message.includes('sauvegardé') ? 'success' : 'error'}>
-          {message}
-        </p>
+      {message && <p className="error">{message}</p>}
+
+      {loading && (
+        <div style={{ marginTop: 16 }}>
+          <SkeletonCards count={3} />
+        </div>
       )}
 
-      {viewMode === 'upcoming' && (
-        <>
-          <div className="card">
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                gap: 12,
-                alignItems: 'center',
-                flexWrap: 'wrap',
-              }}
+      {!loading && viewMode === 'upcoming' && (
+        <div className="view-anim" key="upcoming">
+          <div className="card date-nav">
+            <button
+              type="button"
+              className="icon-btn"
+              aria-label="Jour précédent"
+              onClick={() => setSelectedDate((date) => addDays(date, -1))}
             >
-              <button
-                type="button"
-                className="secondary"
-                onClick={() => setSelectedDate((date) => addDays(date, -1))}
-              >
-                ◀ Jour précédent
-              </button>
+              <IconChevronLeft size={20} />
+            </button>
 
-              <h2 style={{ margin: 0, textAlign: 'center' }}>
-                {formatDateTitle(selectedDate)}
-              </h2>
+            <div className="date-nav-title">{formatDateTitle(selectedDate)}</div>
 
-              <button
-                type="button"
-                className="secondary"
-                onClick={() => setSelectedDate((date) => addDays(date, 1))}
-              >
-                Jour suivant ▶
-              </button>
-            </div>
+            <button
+              type="button"
+              className="icon-btn"
+              aria-label="Jour suivant"
+              onClick={() => setSelectedDate((date) => addDays(date, 1))}
+            >
+              <IconChevronRight size={20} />
+            </button>
           </div>
 
           <div className="card">
-            <h2>🏆 Pronostic Champion du Monde</h2>
+            <h2>Pronostic Champion du Monde</h2>
 
             <p className="small">
               Pronostique le vainqueur de la Coupe du Monde 2026 et gagne
@@ -1158,37 +1038,79 @@ export default function PredictionsPage() {
 
             <Link href="/champion">
               <button type="button" style={{ width: '100%', marginTop: 12 }}>
-                🏆 Gérer mon pronostic Champion
+                Gérer mon pronostic Champion
               </button>
             </Link>
           </div>
 
           {matchesForSelectedDate.length === 0 ? (
             <div className="card">
-              <p>Aucun match prévu ce jour-là.</p>
+              <EmptyState
+                icon={<IconMatches size={32} />}
+                title="Aucun match ce jour-là"
+              >
+                Change de date avec les flèches pour trouver les prochains matchs.
+              </EmptyState>
             </div>
           ) : (
-            <div style={{ display: 'grid', gap: 16 }}>
-              {matchesForSelectedDate.map((match) =>
-                renderMatchCard(match, 'upcoming')
-              )}
-            </div>
+            <>
+              <div style={{ display: 'grid', gap: 16 }}>
+                {matchesForSelectedDate.map((match) =>
+                  renderMatchCard(match, 'upcoming')
+                )}
+              </div>
+
+              <div className="card date-nav">
+                <button
+                  type="button"
+                  className="icon-btn"
+                  aria-label="Jour précédent"
+                  onClick={() => {
+                    setSelectedDate((date) => addDays(date, -1));
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                >
+                  <IconChevronLeft size={20} />
+                </button>
+
+                <div className="date-nav-title">
+                  {formatDateTitle(selectedDate)}
+                </div>
+
+                <button
+                  type="button"
+                  className="icon-btn"
+                  aria-label="Jour suivant"
+                  onClick={() => {
+                    setSelectedDate((date) => addDays(date, 1));
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                >
+                  <IconChevronRight size={20} />
+                </button>
+              </div>
+            </>
           )}
-        </>
+        </div>
       )}
 
-      {viewMode === 'history' && (
-        <>
+      {!loading && viewMode === 'history' && (
+        <div className="view-anim" key="history">
           {historyMatches.length === 0 ? (
             <div className="card">
-              <p>Aucun match terminé pour le moment.</p>
+              <EmptyState
+                icon={<IconTrophy size={32} />}
+                title="Aucun match terminé"
+              >
+                Tes résultats apparaîtront ici après les premiers matchs.
+              </EmptyState>
             </div>
           ) : (
             <div style={{ display: 'grid', gap: 16 }}>
               {historyMatches.map((match) => renderMatchCard(match, 'history'))}
             </div>
           )}
-        </>
+        </div>
       )}
     </main>
   );

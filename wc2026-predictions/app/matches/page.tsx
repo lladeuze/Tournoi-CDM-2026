@@ -2,6 +2,18 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { teamFlagUrl as getFlagUrl } from '@/lib/flags';
+import { phaseLabels } from '@/lib/phases';
+import Countdown from '@/app/components/Countdown';
+import EmptyState from '@/app/components/EmptyState';
+import OtherPredictionsList from '@/app/components/OtherPredictionsList';
+import { IconMatches } from '@/app/components/icons';
+
+const statusMeta: Record<string, { label: string; cls: string }> = {
+  scheduled: { label: 'À venir', cls: 'locked' },
+  live: { label: 'En direct', cls: 'fire' },
+  finished: { label: 'Terminé', cls: 'finished' },
+};
 
 type Team = {
   id: string;
@@ -41,75 +53,6 @@ type OtherPrediction = {
   predicted_first_scorer: string | null;
   predicted_first_scorer_id: string | null;
 };
-
-const phaseLabels: Record<string, string> = {
-  group_j1: 'Poules J1',
-  group_j2: 'Poules J2',
-  group_j3: 'Poules J3',
-  round_of_32: '16es de finale',
-  round_of_16: '8es de finale',
-  quarter: 'Quarts de finale',
-  semi: 'Demi-finales',
-  final: 'Finale',
-};
-
-const flagsByCode: Record<string, string> = {
-  MEX: 'mx',
-  RSA: 'za',
-  KOR: 'kr',
-  CZE: 'cz',
-  CAN: 'ca',
-  BIH: 'ba',
-  QAT: 'qa',
-  SUI: 'ch',
-  BRA: 'br',
-  MAR: 'ma',
-  HAI: 'ht',
-  SCO: 'gb-sct',
-  USA: 'us',
-  PAR: 'py',
-  AUS: 'au',
-  TUR: 'tr',
-  GER: 'de',
-  CUW: 'cw',
-  CIV: 'ci',
-  ECU: 'ec',
-  NED: 'nl',
-  JPN: 'jp',
-  SWE: 'se',
-  TUN: 'tn',
-  BEL: 'be',
-  EGY: 'eg',
-  IRN: 'ir',
-  NZL: 'nz',
-  ESP: 'es',
-  CPV: 'cv',
-  KSA: 'sa',
-  URU: 'uy',
-  FRA: 'fr',
-  SEN: 'sn',
-  IRQ: 'iq',
-  NOR: 'no',
-  ARG: 'ar',
-  ALG: 'dz',
-  AUT: 'at',
-  JOR: 'jo',
-  POR: 'pt',
-  COD: 'cd',
-  UZB: 'uz',
-  COL: 'co',
-  ENG: 'gb-eng',
-  CRO: 'hr',
-  GHA: 'gh',
-  PAN: 'pa',
-};
-
-function getFlagUrl(team: Team | null) {
-  const code = team?.code?.trim().toUpperCase();
-  const flagCode = code ? flagsByCode[code] : null;
-
-  return flagCode ? `https://flagcdn.com/w160/${flagCode}.png` : null;
-}
 
 function hasMatchStarted(kickoffAt: string) {
   return new Date(kickoffAt).getTime() <= Date.now();
@@ -380,7 +323,12 @@ export default function MatchesPage() {
 
       {filteredMatches.length === 0 ? (
         <div className="card">
-          <p>Aucun match disponible pour cette phase.</p>
+          <EmptyState
+            icon={<IconMatches size={32} />}
+            title="Aucun match pour ce filtre"
+          >
+            Essaie une autre phase ou réinitialise la recherche.
+          </EmptyState>
         </div>
       ) : (
         <div style={{ display: 'grid', gap: 16 }}>
@@ -393,19 +341,31 @@ export default function MatchesPage() {
             return (
               <div key={match.id} style={{ display: 'grid', gap: 8 }}>
                 <div className="card">
-                  <p className="small">
-                    {phaseLabels[match.phase] || match.phase} ·{' '}
-                    {new Date(match.kickoff_at).toLocaleString('fr-BE')}
-                  </p>
+                  <div className="admin-match-head">
+                    <span
+                      className={`badge ${statusMeta[match.status]?.cls || ''}`}
+                    >
+                      {statusMeta[match.status]?.label || match.status}
+                    </span>
+                    <span className="small">
+                      {phaseLabels[match.phase] || match.phase} ·{' '}
+                      {new Date(match.kickoff_at).toLocaleString('fr-BE')}
+                    </span>
+                  </div>
 
                   <div className="match-header">
                     {renderTeam(homeTeam, match.home_team)}
 
                     <div
                       style={{
-                        fontWeight: 900,
-                        fontSize: 24,
-                        color: '#5eead4',
+                        fontWeight: 800,
+                        fontSize: 13,
+                        letterSpacing: '0.08em',
+                        color: 'var(--muted)',
+                        padding: '6px 10px',
+                        borderRadius: 999,
+                        background: 'var(--surface-2)',
+                        border: '1px solid var(--border)',
                       }}
                     >
                       VS
@@ -414,25 +374,44 @@ export default function MatchesPage() {
                     {renderTeam(awayTeam, match.away_team)}
                   </div>
 
-                  <p
-                    style={{
-                      fontSize: 24,
-                      fontWeight: 900,
-                      textAlign: 'center',
-                      marginTop: 16,
-                    }}
-                  >
-                    Score : {match.home_score ?? '-'} -{' '}
-                    {match.away_score ?? '-'}
-                  </p>
+                  {match.home_score !== null && match.away_score !== null ? (
+                    <>
+                      <div className="scoreboard">
+                        <span />
+                        <span className="sb-score">
+                          <span
+                            className={`sb-num${
+                              match.home_score > match.away_score ? ' win' : ''
+                            }`}
+                          >
+                            {match.home_score}
+                          </span>
+                          <span className="sb-sep">–</span>
+                          <span
+                            className={`sb-num${
+                              match.away_score > match.home_score ? ' win' : ''
+                            }`}
+                          >
+                            {match.away_score}
+                          </span>
+                        </span>
+                        <span />
+                      </div>
 
-                  <p className="small">
-                    Première équipe qui marque : {getFirstScoringTeam(match)}
-                  </p>
-
-                  <p className="small">
-                    Premier buteur : {match.first_scorer || '-'}
-                  </p>
+                      <p className="small" style={{ textAlign: 'center' }}>
+                        1ʳᵉ équipe : {getFirstScoringTeam(match)} · 1ᵉʳ buteur :{' '}
+                        {match.first_scorer || '—'}
+                      </p>
+                    </>
+                  ) : started ? (
+                    <p className="sb-pending" style={{ margin: '14px 0 6px' }}>
+                      Match en cours…
+                    </p>
+                  ) : (
+                    <p style={{ textAlign: 'center', margin: '12px 0 4px' }}>
+                      <Countdown kickoffAt={match.kickoff_at} />
+                    </p>
+                  )}
 
                   <div
                     style={{
@@ -443,16 +422,12 @@ export default function MatchesPage() {
                       flexWrap: 'wrap',
                     }}
                   >
-                    <span className="badge">{match.status}</span>
-
                     {started ? (
                       <button
                         type="button"
                         onClick={() => togglePredictions(match)}
                       >
-                        {isOpen
-                          ? 'Ne plus voir les pronos'
-                          : 'Voir les pronos'}
+                        {isOpen ? 'Masquer les pronos' : 'Voir les pronos'}
                       </button>
                     ) : (
                       <span className="small">
@@ -469,60 +444,12 @@ export default function MatchesPage() {
                     </h2>
 
                     {loadingPredictions ? (
-                      <p>Chargement des pronos...</p>
-                    ) : otherPredictions.length === 0 ? (
-                      <p>Aucun prono disponible pour cette ligue.</p>
+                      <p className="small">Chargement des pronos...</p>
                     ) : (
-                      <div style={{ overflowX: 'auto' }}>
-                        <table
-                          style={{
-                            width: '100%',
-                            borderCollapse: 'collapse',
-                          }}
-                        >
-                          <thead>
-                            <tr>
-                              <th style={{ textAlign: 'left', padding: 8 }}>
-                                Joueur
-                              </th>
-                              <th style={{ textAlign: 'left', padding: 8 }}>
-                                Score
-                              </th>
-                              <th style={{ textAlign: 'left', padding: 8 }}>
-                                1ère équipe
-                              </th>
-                              <th style={{ textAlign: 'left', padding: 8 }}>
-                                1er buteur
-                              </th>
-                            </tr>
-                          </thead>
-
-                          <tbody>
-                            {otherPredictions.map((prediction) => (
-                              <tr key={prediction.user_id}>
-                                <td style={{ padding: 8 }}>
-                                  {prediction.username || 'Utilisateur'}
-                                </td>
-
-                                <td style={{ padding: 8 }}>
-                                  {prediction.predicted_home_score ?? '-'} -{' '}
-                                  {prediction.predicted_away_score ?? '-'}
-                                </td>
-
-                                <td style={{ padding: 8 }}>
-                                  {getTeamName(
-                                    prediction.predicted_first_scoring_team_id
-                                  )}
-                                </td>
-
-                                <td style={{ padding: 8 }}>
-                                  {prediction.predicted_first_scorer || '-'}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
+                      <OtherPredictionsList
+                        predictions={otherPredictions}
+                        teamName={getTeamName}
+                      />
                     )}
                   </div>
                 )}

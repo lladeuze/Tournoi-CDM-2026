@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { SkeletonCards } from '@/app/components/Skeleton';
+import { IconCrown } from '@/app/components/icons';
 
 type LeaderboardRow = {
   user_id: string;
@@ -35,6 +37,7 @@ export default function LeaderboardPage() {
   const [leagues, setLeagues] = useState<League[]>([]);
   const [leagueMembers, setLeagueMembers] = useState<LeagueMemberRow[]>([]);
   const [selectedLeagueId, setSelectedLeagueId] = useState('global');
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
@@ -62,6 +65,8 @@ export default function LeaderboardPage() {
       setLoading(false);
       return;
     }
+
+    setCurrentUserId(user.id);
 
     const [
       { data: leaderboardData, error: leaderboardError },
@@ -161,47 +166,78 @@ export default function LeaderboardPage() {
 
   const podium = useMemo(() => filteredRows.slice(0, 3), [filteredRows]);
 
-  function medal(index: number) {
-    if (index === 0) return '🥇';
-    if (index === 1) return '🥈';
-    if (index === 2) return '🥉';
-    return '';
+  const rankColors = ['#f5b519', '#c0c7d1', '#cd7f44']; // gold / silver / bronze
+
+  function RankBadge({ index, size = 30 }: { index: number; size?: number }) {
+    const top = index < 3;
+    const color = top ? rankColors[index] : 'var(--surface-2)';
+    return (
+      <span
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: size,
+          height: size,
+          borderRadius: '50%',
+          fontSize: size * 0.42,
+          fontWeight: 900,
+          color: top ? '#231a00' : 'var(--muted)',
+          background: top
+            ? `radial-gradient(circle at 30% 25%, #fff6, transparent 60%), ${color}`
+            : color,
+          border: top ? 'none' : '1px solid var(--border)',
+          boxShadow: top ? '0 4px 12px rgba(0,0,0,0.25)' : 'none',
+        }}
+      >
+        {index + 1}
+      </span>
+    );
   }
 
   return (
     <main className="container">
       <h1>
-        🏆{' '}
         {selectedLeagueId === 'global'
           ? 'Classement global'
           : `Classement — ${selectedLeague?.name || 'Ligue'}`}
       </h1>
 
       {message && <p className="error">{message}</p>}
-      {loading && <p className="small">Chargement du classement...</p>}
+      {loading && (
+        <div style={{ marginTop: 16 }}>
+          <SkeletonCards count={3} />
+        </div>
+      )}
 
       {!loading && (
-        <div className="card">
-          <h2>Filtrer le classement</h2>
-
-          <label>Ligue</label>
-
-          <select
-            value={selectedLeagueId}
-            onChange={(e) => setSelectedLeagueId(e.target.value)}
+        <div className="card" style={{ padding: 14 }}>
+          <div
+            style={{ display: 'flex', alignItems: 'center', gap: 12 }}
           >
-            {leagues.map((league) => (
-              <option key={league.id} value={league.id}>
-                🏟️ {league.name}
-              </option>
-            ))}
+            <span
+              className="small"
+              style={{ flexShrink: 0, fontWeight: 700 }}
+            >
+              Ligue
+            </span>
+            <select
+              value={selectedLeagueId}
+              onChange={(e) => setSelectedLeagueId(e.target.value)}
+            >
+              {leagues.map((league) => (
+                <option key={league.id} value={league.id}>
+                  {league.name}
+                </option>
+              ))}
 
-            <option value="global">🌍 Classement global</option>
-          </select>
+              <option value="global">Classement global</option>
+            </select>
+          </div>
 
           {selectedLeagueId !== 'global' && selectedLeague && (
-            <p className="small" style={{ marginTop: 10 }}>
-              Code de la ligue : <strong>{selectedLeague.code}</strong>
+            <p className="small" style={{ margin: '10px 0 0' }}>
+              Code : <strong>{selectedLeague.code}</strong>
             </p>
           )}
         </div>
@@ -214,64 +250,38 @@ export default function LeaderboardPage() {
       )}
 
       {!loading && podium.length > 0 && (
-        <section
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-            gap: 16,
-            alignItems: 'end',
-            marginTop: 24,
-            marginBottom: 32,
-          }}
-        >
-          {podium.map((player, index) => {
-            const isFirst = index === 0;
-
-            return (
+        <section className="podium">
+          {[
+            { p: podium[1], rank: 2 },
+            { p: podium[0], rank: 1 },
+            { p: podium[2], rank: 3 },
+          ]
+            .filter((x) => x.p)
+            .map(({ p, rank }) => (
               <div
-                key={player.user_id}
-                className="card"
-                style={{
-                  textAlign: 'center',
-                  border: isFirst
-                    ? '2px solid rgba(250, 204, 21, 0.8)'
-                    : '1px solid rgba(255,255,255,0.14)',
-                  transform: isFirst ? 'scale(1.04)' : 'scale(1)',
-                  boxShadow: isFirst
-                    ? '0 0 35px rgba(250, 204, 21, 0.22)'
-                    : 'none',
-                }}
+                className="podium-col"
+                key={p.user_id}
+                style={{ animationDelay: `${rank * 0.06}s` }}
               >
-                <div style={{ fontSize: 44 }}>{medal(index)}</div>
-
-                <p className="small">#{index + 1}</p>
-
-                <h2 style={{ marginBottom: 8 }}>{player.username}</h2>
-
-                <p
-                  style={{
-                    fontSize: 32,
-                    fontWeight: 900,
-                    margin: 0,
-                  }}
-                >
-                  {player.total_points} pts
-                </p>
-
-                {player.champion_bonus_points > 0 && (
-                  <p className="small" style={{ marginTop: 8 }}>
-                    🏆 Bonus champion : +{player.champion_bonus_points}
-                  </p>
+                {rank === 1 && (
+                  <span className="podium-crown">
+                    <IconCrown size={22} />
+                  </span>
                 )}
-
-                <p className="small" style={{ marginTop: 12 }}>
-                  🎯 {player.exact_scores_count} score(s) exact(s)
-                  <br />
-                  ⚽ {player.first_scorers_count} buteur(s) trouvé(s)
-                </p>
+                <div
+                  className="podium-name"
+                  style={
+                    p.user_id === currentUserId
+                      ? { color: 'var(--primary)' }
+                      : undefined
+                  }
+                >
+                  {p.username}
+                </div>
+                <div className="podium-pts">{p.total_points} pts</div>
+                <div className={`podium-step r${rank}`}>{rank}</div>
               </div>
-            );
-          })}
+            ))}
         </section>
       )}
 
@@ -288,15 +298,15 @@ export default function LeaderboardPage() {
               }}
             >
               <thead>
-                <tr style={{ textAlign: 'left' }}>
-                  <th style={{ padding: 10 }}>Rang</th>
-                  <th style={{ padding: 10 }}>Joueur</th>
-                  <th style={{ padding: 10 }}>Points</th>
-                  <th style={{ padding: 10 }}>Champion</th>
-                  <th style={{ padding: 10 }}>Scores exacts</th>
-                  <th style={{ padding: 10 }}>Bons résultats</th>
-                  <th style={{ padding: 10 }}>Buteurs trouvés</th>
-                  <th style={{ padding: 10 }}>Pronos</th>
+                <tr>
+                  <th>Rang</th>
+                  <th>Joueur</th>
+                  <th>Points</th>
+                  <th className="lb-extra">Champion</th>
+                  <th className="lb-extra">Scores exacts</th>
+                  <th className="lb-extra">Bons résultats</th>
+                  <th className="lb-extra">Buteurs</th>
+                  <th className="lb-extra">Pronos</th>
                 </tr>
               </thead>
 
@@ -304,41 +314,39 @@ export default function LeaderboardPage() {
                 {filteredRows.map((player, index) => (
                   <tr
                     key={player.user_id}
-                    style={{
-                      borderTop: '1px solid rgba(255,255,255,0.10)',
-                    }}
+                    className={player.user_id === currentUserId ? 'lb-me' : ''}
                   >
-                    <td style={{ padding: 10, fontWeight: 800 }}>
-                      {index < 3 ? medal(index) : `#${index + 1}`}
+                    <td style={{ fontWeight: 800 }}>
+                      <RankBadge index={index} size={26} />
                     </td>
 
-                    <td style={{ padding: 10, fontWeight: 700 }}>
+                    <td style={{ fontWeight: 700 }}>
                       {player.username}
+                      {player.user_id === currentUserId && (
+                        <span
+                          className="badge"
+                          style={{ marginLeft: 8, padding: '2px 8px' }}
+                        >
+                          toi
+                        </span>
+                      )}
                     </td>
 
-                    <td style={{ padding: 10, fontWeight: 900 }}>
+                    <td style={{ fontWeight: 900, color: 'var(--primary)' }}>
                       {player.total_points}
                     </td>
 
-                    <td style={{ padding: 10, fontWeight: 800 }}>
+                    <td className="lb-extra" style={{ fontWeight: 800 }}>
                       +{player.champion_bonus_points ?? 0}
                     </td>
 
-                    <td style={{ padding: 10 }}>
-                      {player.exact_scores_count}
-                    </td>
+                    <td className="lb-extra">{player.exact_scores_count}</td>
 
-                    <td style={{ padding: 10 }}>
-                      {player.correct_results_count}
-                    </td>
+                    <td className="lb-extra">{player.correct_results_count}</td>
 
-                    <td style={{ padding: 10 }}>
-                      {player.first_scorers_count}
-                    </td>
+                    <td className="lb-extra">{player.first_scorers_count}</td>
 
-                    <td style={{ padding: 10 }}>
-                      {player.predictions_count}
-                    </td>
+                    <td className="lb-extra">{player.predictions_count}</td>
                   </tr>
                 ))}
               </tbody>

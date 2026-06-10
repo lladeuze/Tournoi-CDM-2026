@@ -2,14 +2,14 @@ export default function ConfirmedPage() {
   return (
     <main className="container">
       <div className="card">
-        <h1>✅ Adresse email confirmée</h1>
+        <h1>Adresse email confirmée</h1>
 
         <p>
-          Votre compte a été activé avec succès.
+          Ton compte a été activé avec succès.
         </p>
 
         <p>
-          Vous pouvez maintenant vous connecter et commencer vos pronostics.
+          Tu peux maintenant te connecter et commencer tes pronostics.
         </p>
 
         <a href="/login">

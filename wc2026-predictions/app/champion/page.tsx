@@ -3,6 +3,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
+import { SkeletonCards } from '@/app/components/Skeleton';
+import { useToast } from '@/app/components/Toast';
+import { teamFlagUrl as getFlagUrl } from '@/lib/flags';
+import { positionLabel as getPositionLabel } from '@/lib/phases';
 
 type Team = {
   id: string;
@@ -53,63 +57,6 @@ type AwardKey =
   | 'top_assist'
   | 'best_goalkeeper';
 
-const flagsByCode: Record<string, string> = {
-  MEX: 'mx',
-  RSA: 'za',
-  KOR: 'kr',
-  CZE: 'cz',
-  CAN: 'ca',
-  BIH: 'ba',
-  QAT: 'qa',
-  SUI: 'ch',
-  BRA: 'br',
-  MAR: 'ma',
-  HAI: 'ht',
-  SCO: 'gb-sct',
-  USA: 'us',
-  PAR: 'py',
-  AUS: 'au',
-  TUR: 'tr',
-  GER: 'de',
-  CUW: 'cw',
-  CIV: 'ci',
-  ECU: 'ec',
-  NED: 'nl',
-  JPN: 'jp',
-  SWE: 'se',
-  TUN: 'tn',
-  BEL: 'be',
-  EGY: 'eg',
-  IRN: 'ir',
-  NZL: 'nz',
-  ESP: 'es',
-  CPV: 'cv',
-  KSA: 'sa',
-  URU: 'uy',
-  FRA: 'fr',
-  SEN: 'sn',
-  IRQ: 'iq',
-  NOR: 'no',
-  ARG: 'ar',
-  ALG: 'dz',
-  AUT: 'at',
-  JOR: 'jo',
-  POR: 'pt',
-  COD: 'cd',
-  UZB: 'uz',
-  COL: 'co',
-  ENG: 'gb-eng',
-  CRO: 'hr',
-  GHA: 'gh',
-  PAN: 'pa',
-};
-
-function getFlagUrl(team: Team) {
-  const code = team.code?.trim().toUpperCase();
-  const flagCode = code ? flagsByCode[code] : null;
-  return flagCode ? `https://flagcdn.com/w160/${flagCode}.png` : null;
-}
-
 function formatDate(date: Date | null) {
   if (!date) return 'Date inconnue';
 
@@ -122,15 +69,8 @@ function formatDate(date: Date | null) {
   });
 }
 
-function getPositionLabel(position: string | null) {
-  if (position === 'ATT') return '⚽ ATT';
-  if (position === 'MID') return '🎯 MID';
-  if (position === 'DEF') return '🛡 DEF';
-  if (position === 'GK') return '🧤 GK';
-  return '❔';
-}
-
 export default function ChampionPage() {
+  const toast = useToast();
   const [userId, setUserId] = useState<string | null>(null);
   const [teams, setTeams] = useState<Team[]>([]);
   const [players, setPlayers] = useState<Player[]>([]);
@@ -145,6 +85,9 @@ export default function ChampionPage() {
   const [secondChampionTeamId, setSecondChampionTeamId] = useState('');
   const [selectionMode, setSelectionMode] = useState<'initial' | 'second'>(
     'initial'
+  );
+  const [tab, setTab] = useState<'champion' | 'trophees' | 'regles'>(
+    'champion'
   );
 
   const [bestPlayerId, setBestPlayerId] = useState('');
@@ -367,10 +310,10 @@ export default function ChampionPage() {
   function selectTeam(team: Team) {
     if (selectionMode === 'initial') {
       setInitialChampionTeamId(team.id);
-      setMessage(`${team.name} sélectionné comme champion initial.`);
+      toast.info(`${team.name} sélectionné comme champion initial`);
     } else {
       setSecondChampionTeamId(team.id);
-      setMessage(`${team.name} sélectionné comme champion après groupes.`);
+      toast.info(`${team.name} sélectionné comme champion après groupes`);
     }
   }
 
@@ -455,12 +398,12 @@ export default function ChampionPage() {
     const isInitial = type === 'initial';
 
     if (isInitial && !canEditInitialChampion()) {
-      setMessage('Le champion initial est verrouillé.');
+      toast.error('Le champion initial est verrouillé.');
       return;
     }
 
     if (!isInitial && !canEditSecondChampion()) {
-      setMessage(
+      toast.error(
         'Le deuxième champion ne peut être choisi qu’entre le 28 juin 2026 à 00h00 et le 29 juin 2026 à 18h00.'
       );
       return;
@@ -496,14 +439,14 @@ export default function ChampionPage() {
       .upsert(payload, { onConflict: 'user_id' });
 
     if (error) {
-      setMessage(`Erreur champion : ${error.message}`);
+      toast.error(`Erreur champion : ${error.message}`);
       return;
     }
 
-    setMessage(
+    toast.success(
       isInitial
-        ? 'Champion initial sauvegardé.'
-        : 'Champion après groupes sauvegardé.'
+        ? 'Champion initial sauvegardé ✓'
+        : 'Champion après groupes sauvegardé ✓'
     );
 
     await load();
@@ -513,7 +456,7 @@ export default function ChampionPage() {
     if (!userId) return;
 
     if (!canEditAwardPredictions()) {
-      setMessage(
+      toast.error(
         'Les pronostics des trophées sont verrouillés car la compétition a commencé.'
       );
       return;
@@ -532,11 +475,11 @@ export default function ChampionPage() {
     );
 
     if (error) {
-      setMessage(`Erreur trophées : ${error.message}`);
+      toast.error(`Erreur trophées : ${error.message}`);
       return;
     }
 
-    setMessage('Pronostics des trophées sauvegardés.');
+    toast.success('Pronostics des trophées sauvegardés ✓');
     await load();
   }
 
@@ -549,17 +492,17 @@ export default function ChampionPage() {
     return (
       <div
         style={{
-          border: '1px solid rgba(255,255,255,0.12)',
+          border: '1px solid var(--border)',
           borderRadius: 16,
           padding: 18,
-          background: 'rgba(15,23,42,0.75)',
+          background: 'var(--elevated)',
         }}
       >
         <h3 style={{ marginTop: 0 }}>{title}</h3>
 
         {selectedId ? (
           <p>
-            ✅ <strong>{getSelectedPlayerLabel(selectedId)}</strong>
+            <strong>{getSelectedPlayerLabel(selectedId)}</strong>
           </p>
         ) : (
           <p className="small">Aucun joueur sélectionné.</p>
@@ -644,7 +587,7 @@ export default function ChampionPage() {
                     }}
                   >
                     <span>
-                      {selected ? '✅ ' : ''}
+                      {selected ? '' : ''}
                       {getPositionLabel(player.position)} · {player.name}
                     </span>
 
@@ -670,15 +613,19 @@ export default function ChampionPage() {
 
   return (
     <main className="container">
-      <h1>🏆 Champion du Monde 2026</h1>
+      <h1>Champion du Monde 2026</h1>
 
       <Link href="/predictions">
         <button type="button" className="secondary" style={{ marginBottom: 16 }}>
-          ← Retour aux pronostics
+          Retour aux pronostics
         </button>
       </Link>
 
-      {loading && <p className="small">Chargement...</p>}
+      {loading && (
+        <div style={{ marginTop: 16 }}>
+          <SkeletonCards count={3} />
+        </div>
+      )}
 
       {message && (
         <p
@@ -694,12 +641,37 @@ export default function ChampionPage() {
 
       {!loading && userId && (
         <>
+          <div className="segmented" style={{ marginBottom: 16 }}>
+            <button
+              type="button"
+              className={tab === 'champion' ? 'active' : ''}
+              onClick={() => setTab('champion')}
+            >
+              Champion
+            </button>
+            <button
+              type="button"
+              className={tab === 'trophees' ? 'active' : ''}
+              onClick={() => setTab('trophees')}
+            >
+              Trophées
+            </button>
+            <button
+              type="button"
+              className={tab === 'regles' ? 'active' : ''}
+              onClick={() => setTab('regles')}
+            >
+              Règles
+            </button>
+          </div>
+
+          {tab === 'regles' && (
           <div className="card">
-            <h2>📋 Règles et barème</h2>
+            <h2>Règles et barème</h2>
 
             <div style={{ display: 'grid', gap: 10 }}>
               <p>
-                <strong>🎯 Champion initial :</strong> sélection disponible
+                <strong>Champion initial :</strong> sélection disponible
                 jusqu’à la fin des matchs de J1.
               </p>
 
@@ -715,7 +687,7 @@ export default function ChampionPage() {
               <hr style={{ opacity: 0.15, width: '100%' }} />
 
               <p>
-                <strong>🔄 Champion après groupes :</strong> disponible après la
+                <strong>Champion après groupes :</strong> disponible après la
                 fin des groupes et avant le début des 16es de finale.
               </p>
 
@@ -733,7 +705,7 @@ export default function ChampionPage() {
               <hr style={{ opacity: 0.15, width: '100%' }} />
 
               <p>
-                <strong>🏅 Trophées individuels :</strong> +10 points par
+                <strong>Trophées individuels :</strong> +10 points par
                 trophée correctement pronostiqué, soit jusqu’à +40 points bonus.
               </p>
 
@@ -742,9 +714,11 @@ export default function ChampionPage() {
               </p>
             </div>
           </div>
+          )}
 
+          {tab === 'trophees' && (
           <div className="card">
-            <h2>🏅 Pronostics trophées individuels</h2>
+            <h2>Pronostics trophées individuels</h2>
 
             <p className="small">
               Clique sur “Choisir le joueur” pour ouvrir la sélection, puis
@@ -776,18 +750,21 @@ export default function ChampionPage() {
 
             {!canEditAwardPredictions() && (
               <p className="small" style={{ marginTop: 12 }}>
-                🔒 Les pronostics des trophées sont verrouillés.
+                Les pronostics des trophées sont verrouillés.
               </p>
             )}
           </div>
+          )}
 
+          {tab === 'champion' && (
+          <>
           <div className="grid">
             <div className="card">
-              <h2>🎯 Champion initial (+20 pts)</h2>
+              <h2>Champion initial (+20 pts)</h2>
 
               {initialChampionTeam ? (
                 <p>
-                  ✅ {initialChampionTeam.code} — {initialChampionTeam.name}
+                  {initialChampionTeam.code} — {initialChampionTeam.name}
                 </p>
               ) : (
                 <p className="small">Aucun champion initial sélectionné.</p>
@@ -804,11 +781,11 @@ export default function ChampionPage() {
             </div>
 
             <div className="card">
-              <h2>🔄 Champion après groupes (+10 pts)</h2>
+              <h2>Champion après groupes (+10 pts)</h2>
 
               {secondChampionTeam ? (
                 <p>
-                  ✅ {secondChampionTeam.code} — {secondChampionTeam.name}
+                  {secondChampionTeam.code} — {secondChampionTeam.name}
                 </p>
               ) : (
                 <p className="small">Aucun deuxième champion sélectionné.</p>
@@ -826,7 +803,7 @@ export default function ChampionPage() {
           </div>
 
           <div className="card">
-            <h2>🎯 Je sélectionne actuellement</h2>
+            <h2>Je sélectionne actuellement</h2>
 
             <div
               style={{
@@ -865,7 +842,7 @@ export default function ChampionPage() {
 
           <div className="card">
             <h2>
-              🌍 Sélection des équipes —{' '}
+              Sélection des équipes —{' '}
               {selectionMode === 'initial'
                 ? 'Champion initial'
                 : 'Champion après groupes'}
@@ -888,8 +865,8 @@ export default function ChampionPage() {
               <div
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-                  gap: 12,
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(92px, 1fr))',
+                  gap: 8,
                   marginTop: 14,
                 }}
               >
@@ -908,15 +885,15 @@ export default function ChampionPage() {
                       }
                       onClick={() => selectTeam(team)}
                       style={{
-                        padding: 14,
-                        borderRadius: 14,
+                        padding: 10,
+                        borderRadius: 12,
                         border: selected
-                          ? '2px solid #5eead4'
-                          : '1px solid rgba(255,255,255,0.12)',
+                          ? '2px solid var(--primary)'
+                          : '1px solid var(--border)',
                         background: selected
-                          ? 'rgba(94,234,212,0.14)'
-                          : 'rgba(255,255,255,0.04)',
-                        color: 'white',
+                          ? 'color-mix(in srgb, var(--primary) 16%, transparent)'
+                          : 'var(--surface-2)',
+                        color: 'var(--text)',
                         opacity:
                           selectionMode === 'initial'
                             ? canEditInitialChampion()
@@ -943,24 +920,37 @@ export default function ChampionPage() {
                           src={flagUrl}
                           alt={`Drapeau ${team.name}`}
                           style={{
-                            width: 72,
-                            height: 48,
+                            width: 48,
+                            height: 32,
                             objectFit: 'cover',
-                            borderRadius: 8,
+                            borderRadius: 6,
                           }}
                         />
                       ) : (
-                        <span style={{ fontSize: 36 }}>🏳️</span>
+                        <span style={{ fontSize: 28 }}>🏳️</span>
                       )}
 
-                      <strong>{team.code || '---'}</strong>
-                      <span className="small">{team.name}</span>
+                      <strong style={{ fontSize: '0.85rem' }}>
+                        {team.code || '---'}
+                      </strong>
+                      <span
+                        className="small"
+                        style={{
+                          fontSize: '0.68rem',
+                          lineHeight: 1.1,
+                          textAlign: 'center',
+                        }}
+                      >
+                        {team.name}
+                      </span>
                     </button>
                   );
                 })}
               </div>
             )}
           </div>
+          </>
+          )}
         </>
       )}
     </main>

@@ -1,10 +1,10 @@
 export default function RulesPage() {
   return (
     <main className="container">
-      <h1>📋 Règlement</h1>
+      <h1>Règlement</h1>
 
       <div className="card">
-        <h2>🎯 Pronostics des matchs</h2>
+        <h2>Pronostics des matchs</h2>
 
         <p>
           Chaque participant peut pronostiquer le score exact de chaque match,
@@ -30,7 +30,7 @@ export default function RulesPage() {
       </div>
 
       <div className="card">
-        <h2>🔥 Bonus x2</h2>
+        <h2>Bonus x2</h2>
 
         <p>
           Chaque joueur dispose d’un bonus x2 par phase autorisée. Ce bonus
@@ -51,7 +51,7 @@ export default function RulesPage() {
       </div>
 
       <div className="card">
-        <h2>🏆 Pronostic Champion du Monde</h2>
+        <h2>Pronostic Champion du Monde</h2>
 
         <h3>Champion initial</h3>
 
@@ -82,7 +82,7 @@ export default function RulesPage() {
       </div>
 
       <div className="card">
-        <h2>📊 Classement</h2>
+        <h2>Classement</h2>
 
         <p>
           Le classement général est calculé à partir de l’ensemble des points
@@ -99,7 +99,7 @@ export default function RulesPage() {
       </div>
 
       <div className="card">
-        <h2>🔒 Verrouillage des pronostics</h2>
+        <h2>Verrouillage des pronostics</h2>
 
         <ul>
           <li>
@@ -119,7 +119,7 @@ export default function RulesPage() {
       </div>
 
       <div className="card">
-        <h2>⚽ Coupe du Monde 2026</h2>
+        <h2>Coupe du Monde 2026</h2>
 
         <p>
           L’objectif principal est de s’amuser et de suivre la compétition dans
@@ -127,7 +127,7 @@ export default function RulesPage() {
         </p>
 
         <p>
-          Bonne chance à tous et que le meilleur pronostiqueur l’emporte ! 🏆
+          Bonne chance à tous et que le meilleur pronostiqueur l’emporte ! 
         </p>
       </div>
     </main>

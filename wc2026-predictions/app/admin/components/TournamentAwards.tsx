@@ -43,11 +43,11 @@ const awardLabels: Record<AwardKey, string> = {
 };
 
 function getPositionLabel(position: string | null) {
-  if (position === 'ATT') return '⚽ ATT';
-  if (position === 'MID') return '🎯 MID';
-  if (position === 'DEF') return '🛡 DEF';
-  if (position === 'GK') return '🧤 GK';
-  return '❔';
+  if (position === 'ATT') return 'ATT';
+  if (position === 'MID') return 'MID';
+  if (position === 'DEF') return 'DEF';
+  if (position === 'GK') return 'GK';
+  return '';
 }
 
 export default function TournamentAwards() {
@@ -245,17 +245,17 @@ export default function TournamentAwards() {
     return (
       <div
         style={{
-          border: '1px solid rgba(255,255,255,0.12)',
+          border: '1px solid var(--border)',
           borderRadius: 16,
           padding: 18,
-          background: 'rgba(15,23,42,0.75)',
+          background: 'var(--elevated)',
         }}
       >
         <h3 style={{ marginTop: 0 }}>{awardLabels[awardKey]}</h3>
 
         {selectedId ? (
           <p>
-            ✅ <strong>{getSelectedPlayerLabel(selectedId)}</strong>
+            <strong>{getSelectedPlayerLabel(selectedId)}</strong>
           </p>
         ) : (
           <p className="small">Aucun joueur sélectionné.</p>
@@ -345,7 +345,7 @@ export default function TournamentAwards() {
                     }}
                   >
                     <span>
-                      {selected ? '✅ ' : ''}
+                      {selected ? '' : ''}
                       {getPositionLabel(player.position)} · {player.name}
                     </span>
 
@@ -366,7 +366,7 @@ export default function TournamentAwards() {
 
   return (
     <div className="card">
-      <h2>🏅 Trophées individuels officiels</h2>
+      <h2>Trophées individuels officiels</h2>
 
       <p className="small">
         Ces choix servent à attribuer les +10 points par trophée correctement

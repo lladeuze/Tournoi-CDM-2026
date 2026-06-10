@@ -1,7 +1,19 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
+import {
+  IconLeagues,
+  IconRules,
+  IconAdmin,
+  IconLogout,
+  IconChevronRight,
+  IconUser,
+} from '@/app/components/icons';
+import { SkeletonCards } from '@/app/components/Skeleton';
+import EmptyState from '@/app/components/EmptyState';
+import { useToast } from '@/app/components/Toast';
 
 type Profile = {
   id: string;
@@ -57,6 +69,7 @@ const phaseLabels: Record<string, string> = {
 };
 
 export default function ProfilePage() {
+  const toast = useToast();
   const [userId, setUserId] = useState<string | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [username, setUsername] = useState('');
@@ -87,7 +100,6 @@ export default function ProfilePage() {
     const user = userData.user;
 
     if (!user) {
-      setMessage('Connecte-toi pour voir ton profil.');
       setLoading(false);
       return;
     }
@@ -224,17 +236,17 @@ export default function ProfilePage() {
       .eq('id', userId);
 
     if (error) {
-      setMessage(`Erreur pseudo : ${error.message}`);
+      toast.error(`Erreur pseudo : ${error.message}`);
       return;
     }
 
-    setMessage('Pseudo mis à jour.');
+    toast.success('Pseudo mis à jour ✓');
     await loadProfile();
   }
 
   async function updatePassword() {
     if (!newPassword || newPassword.length < 6) {
-      setMessage('Le mot de passe doit contenir au moins 6 caractères.');
+      toast.error('Le mot de passe doit contenir au moins 6 caractères.');
       return;
     }
 
@@ -243,12 +255,12 @@ export default function ProfilePage() {
     });
 
     if (error) {
-      setMessage(`Erreur mot de passe : ${error.message}`);
+      toast.error(`Erreur mot de passe : ${error.message}`);
       return;
     }
 
     setNewPassword('');
-    setMessage('Mot de passe mis à jour.');
+    toast.success('Mot de passe mis à jour ✓');
   }
 
   const bonusUsed = useMemo(() => {
@@ -273,37 +285,93 @@ export default function ProfilePage() {
 
   return (
     <main className="container">
-      <h1>👤 Mon profil</h1>
+      <h1>Mon profil</h1>
 
-      {loading && <p className="small">Chargement du profil...</p>}
-      {message && <p className="error">{message}</p>}
+      {loading && (
+        <div style={{ marginTop: 16 }}>
+          <SkeletonCards count={3} />
+        </div>
+      )}
+
+      {!loading && !userId && (
+        <div className="card">
+          <EmptyState
+            icon={<IconUser size={32} />}
+            title="Tu n’es pas connecté"
+          >
+            Connecte-toi pour voir ton profil, tes pronos et ton classement.
+          </EmptyState>
+          <Link href="/login">
+            <button type="button" style={{ width: '100%' }}>
+              Se connecter / créer un compte
+            </button>
+          </Link>
+        </div>
+      )}
+
+      {!loading && message && userId && <p className="error">{message}</p>}
 
       {!loading && userId && (
         <>
-          <div className="grid">
-            <div className="card">
-              <p className="small">Classement</p>
-              <h2>{rank ? `#${rank}` : 'Non classé'}</h2>
+          <div className="stat-grid">
+            <div className="stat-tile">
+              <div className="label">Classement</div>
+              <div className="value">{rank ? `#${rank}` : '—'}</div>
             </div>
 
-            <div className="card">
-              <p className="small">Points</p>
-              <h2>{me?.total_points ?? 0} pts</h2>
+            <div className="stat-tile">
+              <div className="label">Points</div>
+              <div className="value">{me?.total_points ?? 0}</div>
             </div>
 
-            <div className="card">
-              <p className="small">Scores exacts</p>
-              <h2>{me?.exact_scores_count ?? 0}</h2>
+            <div className="stat-tile">
+              <div className="label">Scores exacts</div>
+              <div className="value">{me?.exact_scores_count ?? 0}</div>
             </div>
 
-            <div className="card">
-              <p className="small">Buteurs trouvés</p>
-              <h2>{me?.first_scorers_count ?? 0}</h2>
+            <div className="stat-tile">
+              <div className="label">Buteurs</div>
+              <div className="value">{me?.first_scorers_count ?? 0}</div>
             </div>
           </div>
 
+          <div className="card hub-menu">
+            <Link href="/leagues" className="hub-item">
+              <IconLeagues size={20} />
+              <span>Mes ligues</span>
+              <IconChevronRight size={18} />
+            </Link>
+
+            <Link href="/rules" className="hub-item">
+              <IconRules size={20} />
+              <span>Règlement</span>
+              <IconChevronRight size={18} />
+            </Link>
+
+            {profile?.is_admin && (
+              <Link href="/admin" className="hub-item">
+                <IconAdmin size={20} />
+                <span>Administration</span>
+                <IconChevronRight size={18} />
+              </Link>
+            )}
+
+            <button
+              type="button"
+              className="hub-item hub-logout"
+              onClick={async () => {
+                await supabase.auth.signOut();
+                window.location.href = '/login';
+              }}
+            >
+              <IconLogout size={20} />
+              <span>Déconnexion</span>
+              <IconChevronRight size={18} />
+            </button>
+          </div>
+
           <div className="card">
-            <h2>⚙️ Mon compte</h2>
+            <h2>Mon compte</h2>
 
             <div style={{ display: 'grid', gap: 14 }}>
               <div>
@@ -354,7 +422,7 @@ export default function ProfilePage() {
           </div>
 
           <div className="card">
-            <h2>🔥 Mes bonus utilisés</h2>
+            <h2>Mes bonus utilisés</h2>
 
             {bonusUsed.length === 0 ? (
               <p className="small">Aucun bonus utilisé pour le moment.</p>
@@ -366,8 +434,8 @@ export default function ProfilePage() {
                     style={{
                       padding: 12,
                       borderRadius: 12,
-                      background: 'rgba(255,255,255,0.04)',
-                      border: '1px solid rgba(255,255,255,0.10)',
+                      background: 'var(--surface-2)',
+                      border: '1px solid var(--border)',
                     }}
                   >
                     <strong>
@@ -388,7 +456,7 @@ export default function ProfilePage() {
           </div>
 
           <div className="card">
-            <h2>🏆 Mes meilleurs pronostics</h2>
+            <h2>Mes meilleurs pronostics</h2>
 
             {bestPredictions.length === 0 ? (
               <p className="small">Aucun match terminé pour le moment.</p>
@@ -403,11 +471,11 @@ export default function ProfilePage() {
                       background:
                         prediction.points >= 11
                           ? 'rgba(34,197,94,0.14)'
-                          : 'rgba(255,255,255,0.04)',
+                          : 'var(--surface-2)',
                       border:
                         prediction.points >= 11
                           ? '1px solid rgba(34,197,94,0.7)'
-                          : '1px solid rgba(255,255,255,0.10)',
+                          : '1px solid var(--border)',
                     }}
                   >
                     <strong>
@@ -424,7 +492,7 @@ export default function ProfilePage() {
                     </p>
 
                     <p style={{ margin: 0, fontWeight: 900 }}>
-                      {prediction.points >= 11 ? '🏆 PERFECT · ' : ''}
+                      {prediction.points >= 11 ? 'PERFECT · ' : ''}
                       +{prediction.points} pts
                     </p>
                   </div>
@@ -434,51 +502,39 @@ export default function ProfilePage() {
           </div>
 
           <div className="card">
-            <h2>📜 Historique de mes pronostics</h2>
+            <h2>Historique de mes pronostics</h2>
 
             {finishedPredictions.length === 0 ? (
               <p className="small">Aucun historique disponible.</p>
             ) : (
-              <div style={{ overflowX: 'auto' }}>
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Match</th>
-                      <th>Prono</th>
-                      <th>Résultat</th>
-                      <th>Buteur</th>
-                      <th>Bonus</th>
-                      <th>Points</th>
-                    </tr>
-                  </thead>
+              <div className="hist-list">
+                {finishedPredictions.map((prediction) => (
+                  <div className="hist-item" key={prediction.id}>
+                    <div style={{ minWidth: 0 }}>
+                      <strong>
+                        {prediction.matches?.home_team || 'Domicile'} -{' '}
+                        {prediction.matches?.away_team || 'Extérieur'}
+                      </strong>
+                      <div className="small" style={{ marginTop: 2 }}>
+                        Prono {prediction.predicted_home_score}–
+                        {prediction.predicted_away_score} · Résultat{' '}
+                        {prediction.matches?.home_score ?? '-'}–
+                        {prediction.matches?.away_score ?? '-'}
+                        {prediction.first_scorer_correct ? ' · buteur ✓' : ''}
+                        {prediction.double_bonus ? ' · bonus ×2' : ''}
+                      </div>
+                    </div>
 
-                  <tbody>
-                    {finishedPredictions.map((prediction) => (
-                      <tr key={prediction.id}>
-                        <td>
-                          {prediction.matches?.home_team || 'Équipe domicile'} -{' '}
-                          {prediction.matches?.away_team || 'Équipe extérieur'}
-                        </td>
-
-                        <td>
-                          {prediction.predicted_home_score} -{' '}
-                          {prediction.predicted_away_score}
-                        </td>
-
-                        <td>
-                          {prediction.matches?.home_score ?? '-'} -{' '}
-                          {prediction.matches?.away_score ?? '-'}
-                        </td>
-
-                        <td>{prediction.first_scorer_correct ? '✅' : '—'}</td>
-
-                        <td>{prediction.double_bonus ? '🔥' : '—'}</td>
-
-                        <td style={{ fontWeight: 900 }}>{prediction.points}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    <span
+                      className={
+                        prediction.points >= 11 ? 'badge perfect' : 'badge'
+                      }
+                      style={{ flexShrink: 0 }}
+                    >
+                      {prediction.points} pts
+                    </span>
+                  </div>
+                ))}
               </div>
             )}
           </div>

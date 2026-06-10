@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { useToast } from '@/app/components/Toast';
+import EmptyState from '@/app/components/EmptyState';
+import { IconLeagues } from '@/app/components/icons';
 
 type League = {
   id: string;
@@ -17,6 +20,7 @@ type LeagueMember = {
 };
 
 export default function LeaguesPage() {
+  const toast = useToast();
   const [userId, setUserId] = useState<string | null>(null);
   const [leagues, setLeagues] = useState<League[]>([]);
   const [newLeagueName, setNewLeagueName] = useState('');
@@ -97,7 +101,7 @@ export default function LeaguesPage() {
     const cleanName = newLeagueName.trim();
 
     if (!cleanName) {
-      setMessage('Indique un nom de ligue.');
+      toast.error('Indique un nom de ligue.');
       return;
     }
 
@@ -114,7 +118,7 @@ export default function LeaguesPage() {
       .single();
 
     if (leagueError) {
-      setMessage(`Erreur création ligue : ${leagueError.message}`);
+      toast.error(`Erreur création ligue : ${leagueError.message}`);
       return;
     }
 
@@ -124,12 +128,12 @@ export default function LeaguesPage() {
     });
 
     if (memberError) {
-      setMessage(`Ligue créée, mais erreur membre : ${memberError.message}`);
+      toast.error(`Ligue créée, mais erreur membre : ${memberError.message}`);
       return;
     }
 
     setNewLeagueName('');
-    setMessage(`Ligue créée avec le code ${code}.`);
+    toast.success(`Ligue créée avec le code ${code}.`);
     await load();
   }
 
@@ -139,7 +143,7 @@ export default function LeaguesPage() {
     const cleanCode = joinCode.trim().toUpperCase();
 
     if (!cleanCode) {
-      setMessage('Indique un code de ligue.');
+      toast.error('Indique un code de ligue.');
       return;
     }
 
@@ -150,7 +154,7 @@ export default function LeaguesPage() {
       .single();
 
     if (leagueError || !leagueData) {
-      setMessage('Aucune ligue trouvée avec ce code.');
+      toast.error('Aucune ligue trouvée avec ce code.');
       return;
     }
 
@@ -163,22 +167,22 @@ export default function LeaguesPage() {
 
     if (memberError) {
       if (memberError.message.includes('duplicate')) {
-        setMessage('Tu es déjà membre de cette ligue.');
+        toast.error('Tu es déjà membre de cette ligue.');
         return;
       }
 
-      setMessage(`Erreur inscription ligue : ${memberError.message}`);
+      toast.error(`Erreur inscription ligue : ${memberError.message}`);
       return;
     }
 
     setJoinCode('');
-    setMessage(`Tu as rejoint la ligue ${leagueData.name}.`);
+    toast.success(`Tu as rejoint la ligue ${leagueData.name}.`);
     await load();
   }
 
   return (
     <main className="container">
-      <h1>🏟️ Mes ligues</h1>
+      <h1>Mes ligues</h1>
 
       {message && (
         <p
@@ -194,7 +198,7 @@ export default function LeaguesPage() {
 
       <div className="grid">
         <div className="card">
-          <h2>➕ Créer une ligue</h2>
+          <h2>Créer une ligue</h2>
 
           <p className="small">
             Crée une ligue pour jouer avec tes amis, collègues ou ta famille.
@@ -218,7 +222,7 @@ export default function LeaguesPage() {
         </div>
 
         <div className="card">
-          <h2>🔑 Rejoindre une ligue</h2>
+          <h2>Rejoindre une ligue</h2>
 
           <p className="small">
             Entre le code reçu pour rejoindre une ligue existante.
@@ -239,10 +243,15 @@ export default function LeaguesPage() {
       </div>
 
       <div className="card">
-        <h2>🏆 Mes ligues</h2>
+        <h2>Mes ligues</h2>
 
         {leagues.length === 0 ? (
-          <p className="small">Tu n’es encore membre d’aucune ligue.</p>
+          <EmptyState
+            icon={<IconLeagues size={32} />}
+            title="Aucune ligue pour l’instant"
+          >
+            Crée ta ligue ou rejoins-en une avec un code ci-dessus.
+          </EmptyState>
         ) : (
           <div style={{ display: 'grid', gap: 12 }}>
             {leagues.map((league) => (
@@ -251,8 +260,8 @@ export default function LeaguesPage() {
                 style={{
                   padding: 14,
                   borderRadius: 14,
-                  border: '1px solid rgba(255,255,255,0.12)',
-                  background: 'rgba(255,255,255,0.04)',
+                  border: '1px solid var(--border)',
+                  background: 'var(--surface-2)',
                 }}
               >
                 <h3 style={{ marginTop: 0 }}>{league.name}</h3>

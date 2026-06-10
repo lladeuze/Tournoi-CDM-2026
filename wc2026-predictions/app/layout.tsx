@@ -1,5 +1,7 @@
 import './globals.css';
-import Link from 'next/link';
+import AppNav from './components/AppNav';
+import { ToastProvider } from './components/Toast';
+import Pwa from './components/Pwa';
 
 export const metadata = {
   title: 'WC 2026 Predictions',
@@ -12,8 +14,24 @@ export const metadata = {
 };
 
 export const viewport = {
-  themeColor: '#07111f',
+  themeColor: '#f3f6fc',
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
 };
+
+// Sets the theme before first paint to avoid a flash of the wrong theme.
+const themeInitScript = `
+(function () {
+  try {
+    var t = localStorage.getItem('wc-theme');
+    if (t !== 'light' && t !== 'dark') t = 'light';
+    document.documentElement.dataset.theme = t;
+  } catch (e) {
+    document.documentElement.dataset.theme = 'light';
+  }
+})();
+`;
 
 export default function RootLayout({
   children,
@@ -21,36 +39,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="fr">
+    <html lang="fr" data-theme="light" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
       <body>
-        <nav className="nav">
-          <Link className="brand" href="/">
-            🏆 WC 2026 Predictions
-          </Link>
-
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 20,
-              flexWrap: 'wrap',
-            }}
-          >
-            <div className="nav-links">
-              <Link href="/matches">Matchs</Link>
-              <Link href="/predictions">Mes pronos</Link>
-              <Link href="/leaderboard">Classement</Link>
-              <Link href="/profile">Profil</Link>
-              <Link href="/admin">Admin</Link>
-              <Link href="/rules">Règlement</Link>
-              <Link href="/leagues">Ligues</Link>
-            </div>
-
-            <Link href="/login">Connexion</Link>
-          </div>
-        </nav>
-
-        {children}
+        <ToastProvider>
+          <AppNav />
+          {children}
+          <Pwa />
+        </ToastProvider>
       </body>
     </html>
   );

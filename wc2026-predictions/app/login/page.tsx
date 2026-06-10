@@ -202,14 +202,14 @@ export default function LoginPage() {
   return (
     <main className="container">
       <div className="card" style={{ maxWidth: 560, margin: '32px auto' }}>
-        <span className="badge">🏆 WC 2026 Predictions</span>
+        <span className="badge">WC 2026 Predictions</span>
 
         {connectedUser ? (
           <>
             <h1 style={{ marginBottom: 8 }}>Déjà connecté</h1>
 
             <p className="small">
-              Vous êtes actuellement connecté sous le nom{' '}
+              Tu es actuellement connecté sous le nom{' '}
               <strong>{connectedUser.username}</strong>.
             </p>
 
@@ -250,37 +250,25 @@ export default function LoginPage() {
                 'Entre ton email et tu recevras un lien pour modifier ton mot de passe.'}
             </p>
 
-            <div
-              style={{
-                display: 'flex',
-                gap: 8,
-                margin: '22px 0',
-                padding: 6,
-                borderRadius: 999,
-                background: 'rgba(255,255,255,0.04)',
-                border: '1px solid rgba(255,255,255,0.10)',
-              }}
-            >
+            <div className="segmented" style={{ margin: '22px 0' }}>
               <button
                 type="button"
-                className={mode === 'signin' ? '' : 'secondary'}
+                className={mode === 'signin' ? 'active' : ''}
                 onClick={() => {
                   setMode('signin');
                   setMessage('');
                 }}
-                style={{ flex: 1 }}
               >
                 Se connecter
               </button>
 
               <button
                 type="button"
-                className={mode === 'signup' ? '' : 'secondary'}
+                className={mode === 'signup' ? 'active' : ''}
                 onClick={() => {
                   setMode('signup');
                   setMessage('');
                 }}
-                style={{ flex: 1 }}
               >
                 Créer un compte
               </button>

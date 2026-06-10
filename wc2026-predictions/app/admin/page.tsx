@@ -3,6 +3,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import TournamentAwards from './components/TournamentAwards';
+import { IconPlus, IconMinus } from '@/app/components/icons';
+import ScorerPicker from '@/app/components/ScorerPicker';
+import { useToast } from '@/app/components/Toast';
+import { phaseLabels } from '@/lib/phases';
+
+const statusMeta: Record<string, { label: string; cls: string }> = {
+  scheduled: { label: 'À venir', cls: 'locked' },
+  live: { label: 'En direct', cls: 'fire' },
+  finished: { label: 'Terminé', cls: 'finished' },
+};
 
 type Team = {
   id: string;
@@ -41,17 +51,6 @@ type TournamentSettings = {
   updated_at: string | null;
 };
 
-const phaseLabels: Record<string, string> = {
-  group_j1: 'Poules J1',
-  group_j2: 'Poules J2',
-  group_j3: 'Poules J3',
-  round_of_32: '16es de finale',
-  round_of_16: '8es de finale',
-  quarter: 'Quarts de finale',
-  semi: 'Demi-finales',
-  final: 'Finale',
-};
-
 const statuses = ['all', 'scheduled', 'live', 'finished'];
 
 export default function AdminPage() {
@@ -69,6 +68,9 @@ export default function AdminPage() {
   const [search, setSearch] = useState('');
   const [tournamentSettings, setTournamentSettings] =useState<TournamentSettings | null>(null);
   const [winnerTeamId, setWinnerTeamId] = useState('');
+  const [savingMatchId, setSavingMatchId] = useState<string | null>(null);
+
+  const toast = useToast();
 
   useEffect(() => {
     load();
@@ -230,7 +232,7 @@ export default function AdminPage() {
       return;
     }
 
-    const sortedPlayers = (data || []).sort((a: Player, b: Player) => {
+    const sortedPlayers = ((data || []) as Player[]).sort((a, b) => {
       const teamA = getPlayerAbr(a);
       const teamB = getPlayerAbr(b);
 
@@ -299,16 +301,17 @@ async function updateWinnerTeam() {
     );
 
   if (error) {
-    setMessage(`Erreur champion officiel : ${error.message}`);
+    toast.error(`Erreur champion officiel : ${error.message}`);
     return;
   }
 
-  setMessage('Champion officiel mis à jour.');
+  toast.success('Champion officiel mis à jour ✓');
   await load();
 }
 
-  
   async function saveMatch(match: Match) {
+    setSavingMatchId(match.id);
+
     const { error } = await supabase
       .from('matches')
       .update({
@@ -322,12 +325,14 @@ async function updateWinnerTeam() {
       })
       .eq('id', match.id);
 
+    setSavingMatchId(null);
+
     if (error) {
-      setMessage(`Erreur sauvegarde : ${error.message}`);
+      toast.error(`Erreur sauvegarde : ${error.message}`);
       return;
     }
 
-    setMessage('Résultat sauvegardé. Les points ont été recalculés automatiquement.');
+    toast.success('Résultat sauvegardé · points recalculés ✓');
     await load();
   }
 
@@ -351,46 +356,43 @@ async function updateWinnerTeam() {
 
       {isAdmin && (
         <>
-          <div className="card">
-            <h2>Filtres</h2>
+          <div
+            className="card"
+            style={{
+              padding: 12,
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+              gap: 8,
+            }}
+          >
+            <select value={phaseFilter} onChange={(e) => setPhaseFilter(e.target.value)}>
+              <option value="all">Toutes les phases</option>
+              {availablePhases.map((phase) => (
+                <option key={phase} value={phase}>
+                  {phaseLabels[phase] || phase}
+                </option>
+              ))}
+            </select>
 
-            <div className="grid">
-              <div>
-                <label>Phase</label>
-                <select value={phaseFilter} onChange={(e) => setPhaseFilter(e.target.value)}>
-                  <option value="all">Toutes les phases</option>
-                  {availablePhases.map((phase) => (
-                    <option key={phase} value={phase}>
-                      {phaseLabels[phase] || phase}
-                    </option>
-                  ))}
-                </select>
-              </div>
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+              {statuses.map((status) => (
+                <option key={status} value={status}>
+                  {status === 'all'
+                    ? 'Tous les statuts'
+                    : statusMeta[status]?.label || status}
+                </option>
+              ))}
+            </select>
 
-              <div>
-                <label>Statut</label>
-                <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-                  {statuses.map((status) => (
-                    <option key={status} value={status}>
-                      {status === 'all' ? 'Tous les statuts' : status}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label>Recherche équipe</label>
-                <input
-                  placeholder="Belgique, France..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
-              </div>
-            </div>
+            <input
+              placeholder="Rechercher une équipe…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
           </div>
 
           <div className="card">
-  <h2>🏆 Champion officiel</h2>
+  <h2>Champion officiel</h2>
 
   <p className="small">
     Ce choix déclenche les points bonus du pronostic champion dans le classement.
@@ -443,38 +445,29 @@ async function updateWinnerTeam() {
 
             return (
               <div className="card" key={match.id}>
-                <p className="small">
-                  {phaseLabels[match.phase] || match.phase} ·{' '}
-                  {new Date(match.kickoff_at).toLocaleString('fr-BE')}
-                </p>
+                <div className="admin-match-head">
+                  <span className={`badge ${statusMeta[match.status]?.cls || ''}`}>
+                    {statusMeta[match.status]?.label || match.status}
+                  </span>
+                  <span className="small">
+                    {phaseLabels[match.phase] || match.phase} ·{' '}
+                    {new Date(match.kickoff_at).toLocaleString('fr-BE')}
+                  </span>
+                </div>
 
                 {match.match_label && (
-  <div
-    style={{
-      display: 'inline-block',
-      marginBottom: 10,
-      padding: '6px 14px',
-      borderRadius: 999,
-      background: 'rgba(94,234,212,0.15)',
-      border: '1px solid rgba(94,234,212,0.3)',
-      color: '#5eead4',
-      fontWeight: 800,
-      fontSize: '0.9rem',
-    }}
-  >
-    🏆 {match.match_label}
-  </div>
-)}
+                  <span className="badge" style={{ marginTop: 10 }}>
+                    {match.match_label}
+                  </span>
+                )}
 
-<h2>
-  {homeCode ? `${homeCode} ` : ''}
-  {homeName} - {awayName}
-  {awayCode ? ` ${awayCode}` : ''}
-</h2>
+                <h2 style={{ marginTop: 8 }}>
+                  {homeCode ? `${homeCode} ` : ''}
+                  {homeName} — {awayName}
+                  {awayCode ? ` ${awayCode}` : ''}
+                </h2>
 
-
-
-<div className="grid">
+                <div className="grid">
   <div>
     <label>Équipe domicile</label>
 
@@ -519,27 +512,95 @@ async function updateWinnerTeam() {
 
 
                 
-                <div className="grid">
-                  <div>
-                    <label>Score {homeName}</label>
+                <label>Score final</label>
+                <div
+                  className="score-row"
+                  style={{ justifyContent: 'flex-start', marginTop: 4 }}
+                >
+                  <div className="stepper">
+                    <button
+                      type="button"
+                      className="step-btn"
+                      aria-label="Moins"
+                      onClick={() =>
+                        editMatch(
+                          match.id,
+                          'home_score',
+                          String(Math.max(0, (match.home_score ?? 0) - 1))
+                        )
+                      }
+                    >
+                      <IconMinus size={18} />
+                    </button>
                     <input
+                      className="step-val"
                       type="number"
                       min="0"
                       value={match.home_score ?? ''}
-                      onChange={(e) => editMatch(match.id, 'home_score', e.target.value)}
+                      onChange={(e) =>
+                        editMatch(match.id, 'home_score', e.target.value)
+                      }
                     />
+                    <button
+                      type="button"
+                      className="step-btn"
+                      aria-label="Plus"
+                      onClick={() =>
+                        editMatch(
+                          match.id,
+                          'home_score',
+                          String((match.home_score ?? 0) + 1)
+                        )
+                      }
+                    >
+                      <IconPlus size={18} />
+                    </button>
                   </div>
 
-                  <div>
-                    <label>Score {awayName}</label>
+                  <span className="score-dash">–</span>
+
+                  <div className="stepper">
+                    <button
+                      type="button"
+                      className="step-btn"
+                      aria-label="Moins"
+                      onClick={() =>
+                        editMatch(
+                          match.id,
+                          'away_score',
+                          String(Math.max(0, (match.away_score ?? 0) - 1))
+                        )
+                      }
+                    >
+                      <IconMinus size={18} />
+                    </button>
                     <input
+                      className="step-val"
                       type="number"
                       min="0"
                       value={match.away_score ?? ''}
-                      onChange={(e) => editMatch(match.id, 'away_score', e.target.value)}
+                      onChange={(e) =>
+                        editMatch(match.id, 'away_score', e.target.value)
+                      }
                     />
+                    <button
+                      type="button"
+                      className="step-btn"
+                      aria-label="Plus"
+                      onClick={() =>
+                        editMatch(
+                          match.id,
+                          'away_score',
+                          String((match.away_score ?? 0) + 1)
+                        )
+                      }
+                    >
+                      <IconPlus size={18} />
+                    </button>
                   </div>
+                </div>
 
+                <div className="grid">
                   <div>
                     <label>Première équipe qui marque</label>
                     <select
@@ -572,128 +633,45 @@ async function updateWinnerTeam() {
                       value={match.status}
                       onChange={(e) => editMatch(match.id, 'status', e.target.value)}
                     >
-                      <option value="scheduled">scheduled</option>
-                      <option value="live">live</option>
-                      <option value="finished">finished</option>
+                      <option value="scheduled">À venir</option>
+                      <option value="live">En direct</option>
+                      <option value="finished">Terminé</option>
                     </select>
                   </div>
                 </div>
 
                 <label>Premier buteur</label>
 
-                <div style={{ position: 'relative' }}>
-                  <button
-                    type="button"
-                    onClick={() => openScorerDropdown(match)}
-                    style={{
-                      width: '100%',
-                      textAlign: 'left',
-                      border: '1px solid rgba(255,255,255,0.14)',
-                      background: 'rgba(15,23,42,0.9)',
-                      color: 'white',
-                      borderRadius: 10,
-                      padding: '12px 14px',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {selectedPlayer
+                <ScorerPicker
+                  open={scorerDropdownOpen}
+                  onToggle={() => openScorerDropdown(match)}
+                  onClose={() => setOpenScorerForMatch(null)}
+                  players={availablePlayers}
+                  loading={loadingPlayersForMatch === match.id}
+                  selectedId={match.first_scorer_id ?? null}
+                  selectedLabel={
+                    selectedPlayer
                       ? `${selectedPlayer.name} — ${getPlayerAbr(selectedPlayer)}`
-                      : 'Aucun buteur'}
-                    <span style={{ float: 'right' }}>⌄</span>
-                  </button>
-
-                  {scorerDropdownOpen && (
-                    <div
-                      style={{
-                        marginTop: 8,
-                        border: '1px solid rgba(255,255,255,0.14)',
-                        background: '#0f172a',
-                        borderRadius: 12,
-                        padding: 10,
-                        maxHeight: 320,
-                        overflow: 'hidden',
-                        boxShadow: '0 20px 40px rgba(0,0,0,0.35)',
-                      }}
-                    >
-                      <input
-                        autoFocus
-                        type="text"
-                        placeholder="Rechercher un joueur..."
-                        value={playerSearchByMatch[match.id] || ''}
-                        onChange={(e) =>
-                          setPlayerSearchByMatch((current) => ({
-                            ...current,
-                            [match.id]: e.target.value,
-                          }))
-                        }
-                        style={{ marginBottom: 8 }}
-                      />
-
-                      {loadingPlayersForMatch === match.id && (
-                        <p className="small">Chargement des joueurs...</p>
-                      )}
-
-                      <div
-                        style={{
-                          maxHeight: 230,
-                          overflowY: 'auto',
-                          display: 'grid',
-                          gap: 4,
-                        }}
-                      >
-                        <button
-                          type="button"
-                          onClick={() => selectScorer(match, '')}
-                          style={{
-                            textAlign: 'left',
-                            background: 'rgba(255,255,255,0.06)',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: 8,
-                            padding: '9px 10px',
-                            cursor: 'pointer',
-                          }}
-                        >
-                          Aucun buteur
-                        </button>
-
-                        {filteredPlayers.map((player) => (
-                          <button
-                            type="button"
-                            key={player.id}
-                            onClick={() => selectScorer(match, player.id)}
-                            style={{
-                              textAlign: 'left',
-                              background:
-                                match.first_scorer_id === player.id
-                                  ? 'rgba(94, 234, 212, 0.18)'
-                                  : 'transparent',
-                              color: 'white',
-                              border: 'none',
-                              borderRadius: 8,
-                              padding: '9px 10px',
-                              cursor: 'pointer',
-                            }}
-                          >
-                            {player.name} — {getPlayerAbr(player)}
-                          </button>
-                        ))}
-                      </div>
-
-                      <p className="small" style={{ marginTop: 8 }}>
-                        {filteredPlayers.length} joueur(s) affiché(s) sur{' '}
-                        {availablePlayers.length}
-                      </p>
-                    </div>
-                  )}
-                </div>
+                      : 'Aucun buteur'
+                  }
+                  onSelect={(id) => selectScorer(match, id)}
+                  getLabel={(player) =>
+                    `${player.name} — ${getPlayerAbr(player)}`
+                  }
+                />
 
                 {playersByMatch[match.id] && playersByMatch[match.id].length === 0 && (
                   <p className="small error">Aucun joueur trouvé pour ce match.</p>
                 )}
 
-                <button style={{ marginTop: 12 }} onClick={() => saveMatch(match)}>
-                  Sauvegarder résultat
+                <button
+                  style={{ width: '100%', marginTop: 16 }}
+                  disabled={savingMatchId === match.id}
+                  onClick={() => saveMatch(match)}
+                >
+                  {savingMatchId === match.id
+                    ? 'Enregistrement…'
+                    : 'Sauvegarder le résultat'}
                 </button>
               </div>
             );
