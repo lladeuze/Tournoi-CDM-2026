@@ -67,7 +67,7 @@ export default function AdminPage() {
   const [phaseFilter, setPhaseFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [search, setSearch] = useState('');
-  const [tournamentSettings, setTournamentSettings] =useState<TournamentSettings | null>(null);
+  const [tournamentSettings, setTournamentSettings] = useState<TournamentSettings | null>(null);
   const [winnerTeamId, setWinnerTeamId] = useState('');
 
   useEffect(() => {
@@ -110,14 +110,14 @@ export default function AdminPage() {
     setIsAdmin(true);
 
     const [
-  { data: matchesData, error: matchesError },
-  { data: teamsData, error: teamsError },
-  { data: settingsData, error: settingsError },
-] = await Promise.all([
-  supabase.from('matches').select('*').order('kickoff_at', { ascending: true }),
-  supabase.from('teams').select('*').order('name', { ascending: true }),
-  supabase.from('tournament_settings').select('*').eq('id', 1).maybeSingle()
-]);
+      { data: matchesData, error: matchesError },
+      { data: teamsData, error: teamsError },
+      { data: settingsData, error: settingsError },
+    ] = await Promise.all([
+      supabase.from('matches').select('*').order('kickoff_at', { ascending: true }),
+      supabase.from('teams').select('*').order('name', { ascending: true }),
+      supabase.from('tournament_settings').select('*').eq('id', 1).maybeSingle(),
+    ]);
 
     if (matchesError) {
       setMessage(`Erreur matchs : ${matchesError.message}`);
@@ -128,10 +128,10 @@ export default function AdminPage() {
       setMessage(`Erreur équipes : ${teamsError.message}`);
       return;
     }
-    
+
     if (settingsError) {
-  setMessage(`Erreur paramètres tournoi : ${settingsError.message}`);
-  return;
+      setMessage(`Erreur paramètres tournoi : ${settingsError.message}`);
+      return;
     }
 
     const teamsById: Record<string, Team> = {};
@@ -144,6 +144,30 @@ export default function AdminPage() {
     setTournamentSettings(settingsData as TournamentSettings);
     setWinnerTeamId(settingsData?.winner_team_id || '');
     setMatches(matchesData || []);
+
+    const firstScorerIds = Array.from(
+      new Set(
+        (matchesData || [])
+          .map((match: Match) => match.first_scorer_id)
+          .filter(Boolean)
+      )
+    ) as string[];
+
+    if (firstScorerIds.length > 0) {
+      const { data: scorerPlayers, error: scorerPlayersError } = await supabase
+        .from('players')
+        .select('id, team_id, name, active, team_abr')
+        .in('id', firstScorerIds);
+
+      if (scorerPlayersError) {
+        setMessage(`Erreur chargement buteurs : ${scorerPlayersError.message}`);
+        return;
+      }
+
+      setPlayers(scorerPlayers || []);
+    } else {
+      setPlayers([]);
+    }
   }
 
   const availablePhases = useMemo(() => {
@@ -202,7 +226,7 @@ export default function AdminPage() {
 
     if (playersByMatch[match.id]) return;
 
-    const teamIds = [match.home_team_id, match.away_team_id].filter(Boolean);
+    const teamIds = [match.home_team_id, match.away_team_id].filter(Boolean) as string[];
 
     if (teamIds.length === 0) {
       setPlayersByMatch((current) => ({
@@ -279,46 +303,47 @@ export default function AdminPage() {
 
   function selectScorer(match: Match, playerId: string) {
     editMatch(match.id, 'first_scorer_id', playerId);
+
     setOpenScorerForMatch(null);
+
     setPlayerSearchByMatch((current) => ({
       ...current,
       [match.id]: '',
     }));
   }
 
-async function updateWinnerTeam() {
-  const { error } = await supabase
-    .from('tournament_settings')
-    .upsert(
-      {
-        id: 1,
-        winner_team_id: winnerTeamId || null,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'id' }
-    );
+  async function updateWinnerTeam() {
+    const { error } = await supabase
+      .from('tournament_settings')
+      .upsert(
+        {
+          id: 1,
+          winner_team_id: winnerTeamId || null,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'id' }
+      );
 
-  if (error) {
-    setMessage(`Erreur champion officiel : ${error.message}`);
-    return;
+    if (error) {
+      setMessage(`Erreur champion officiel : ${error.message}`);
+      return;
+    }
+
+    setMessage('Champion officiel mis à jour.');
+    await load();
   }
 
-  setMessage('Champion officiel mis à jour.');
-  await load();
-}
-
-  
   async function saveMatch(match: Match) {
     const { error } = await supabase
       .from('matches')
       .update({
         home_score: match.home_score,
         away_score: match.away_score,
-        first_scoring_team_id: match.first_scoring_team_id,
-        first_scorer_id: match.first_scorer_id,
+        first_scoring_team_id: match.first_scoring_team_id || null,
+        first_scorer_id: match.first_scorer_id || null,
         status: match.status,
-        home_team_id: match.home_team_id,
-        away_team_id: match.away_team_id,
+        home_team_id: match.home_team_id || null,
+        away_team_id: match.away_team_id || null,
       })
       .eq('id', match.id);
 
@@ -336,18 +361,18 @@ async function updateWinnerTeam() {
       <h1>Admin — Résultats</h1>
 
       {message && (
-  <p
-    className={
-      message.includes('sauvegardé') ||
-      message.includes('recalculés') ||
-      message.includes('mis à jour')
-        ? 'success'
-        : 'error'
-    }
-  >
-    {message}
-  </p>
-)}
+        <p
+          className={
+            message.includes('sauvegardé') ||
+            message.includes('recalculés') ||
+            message.includes('mis à jour')
+              ? 'success'
+              : 'error'
+          }
+        >
+          {message}
+        </p>
+      )}
 
       {isAdmin && (
         <>
@@ -390,40 +415,33 @@ async function updateWinnerTeam() {
           </div>
 
           <div className="card">
-  <h2>🏆 Champion officiel</h2>
+            <h2>🏆 Champion officiel</h2>
 
-  <p className="small">
-    Ce choix déclenche les points bonus du pronostic champion dans le classement.
-  </p>
+            <p className="small">
+              Ce choix déclenche les points bonus du pronostic champion dans le classement.
+            </p>
 
-  <select
-    value={winnerTeamId}
-    onChange={(e) => setWinnerTeamId(e.target.value)}
-  >
-    <option value="">Aucun champion officiel</option>
+            <select value={winnerTeamId} onChange={(e) => setWinnerTeamId(e.target.value)}>
+              <option value="">Aucun champion officiel</option>
 
-    {Object.values(teams).map((team) => (
-      <option key={team.id} value={team.id}>
-        {team.code ? `${team.code} — ` : ''}
-        {team.name}
-      </option>
-    ))}
-  </select>
+              {Object.values(teams).map((team) => (
+                <option key={team.id} value={team.id}>
+                  {team.code ? `${team.code} — ` : ''}
+                  {team.name}
+                </option>
+              ))}
+            </select>
 
-  <button
-    type="button"
-    onClick={updateWinnerTeam}
-    style={{ marginTop: 12 }}
-  >
-    Sauvegarder le champion officiel
-  </button>
+            <button type="button" onClick={updateWinnerTeam} style={{ marginTop: 12 }}>
+              Sauvegarder le champion officiel
+            </button>
 
-  {tournamentSettings?.winner_team_id && (
-    <p className="small" style={{ marginTop: 10 }}>
-      Champion actuellement enregistré.
-    </p>
-  )}
-</div>
+            {tournamentSettings?.winner_team_id && (
+              <p className="small" style={{ marginTop: 10 }}>
+                Champion actuellement enregistré.
+              </p>
+            )}
+          </div>
 
           <TournamentAwards />
 
@@ -438,7 +456,9 @@ async function updateWinnerTeam() {
             const scorerDropdownOpen = openScorerForMatch === match.id;
 
             const selectedPlayer = match.first_scorer_id
-              ? players.find((player) => player.id === match.first_scorer_id)
+              ? [...players, ...(playersByMatch[match.id] || [])].find(
+                  (player) => player.id === match.first_scorer_id
+                )
               : null;
 
             return (
@@ -449,76 +469,65 @@ async function updateWinnerTeam() {
                 </p>
 
                 {match.match_label && (
-  <div
-    style={{
-      display: 'inline-block',
-      marginBottom: 10,
-      padding: '6px 14px',
-      borderRadius: 999,
-      background: 'rgba(94,234,212,0.15)',
-      border: '1px solid rgba(94,234,212,0.3)',
-      color: '#5eead4',
-      fontWeight: 800,
-      fontSize: '0.9rem',
-    }}
-  >
-    🏆 {match.match_label}
-  </div>
-)}
+                  <div
+                    style={{
+                      display: 'inline-block',
+                      marginBottom: 10,
+                      padding: '6px 14px',
+                      borderRadius: 999,
+                      background: 'rgba(94,234,212,0.15)',
+                      border: '1px solid rgba(94,234,212,0.3)',
+                      color: '#5eead4',
+                      fontWeight: 800,
+                      fontSize: '0.9rem',
+                    }}
+                  >
+                    🏆 {match.match_label}
+                  </div>
+                )}
 
-<h2>
-  {homeCode ? `${homeCode} ` : ''}
-  {homeName} - {awayName}
-  {awayCode ? ` ${awayCode}` : ''}
-</h2>
+                <h2>
+                  {homeCode ? `${homeCode} ` : ''}
+                  {homeName} - {awayName}
+                  {awayCode ? ` ${awayCode}` : ''}
+                </h2>
 
+                <div className="grid">
+                  <div>
+                    <label>Équipe domicile</label>
 
+                    <select
+                      value={match.home_team_id || ''}
+                      onChange={(e) => editMatch(match.id, 'home_team_id', e.target.value)}
+                    >
+                      <option value="">Sélectionner...</option>
 
-<div className="grid">
-  <div>
-    <label>Équipe domicile</label>
+                      {Object.values(teams).map((team) => (
+                        <option key={team.id} value={team.id}>
+                          {team.code} - {team.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-    <select
-      value={match.home_team_id || ''}
-      onChange={(e) =>
-        editMatch(match.id, 'home_team_id', e.target.value)
-      }
-    >
-      <option value="">Sélectionner...</option>
+                  <div>
+                    <label>Équipe extérieure</label>
 
-      {Object.values(teams).map((team) => (
-        <option key={team.id} value={team.id}>
-          {team.code} - {team.name}
-        </option>
-      ))}
-    </select>
-  </div>
+                    <select
+                      value={match.away_team_id || ''}
+                      onChange={(e) => editMatch(match.id, 'away_team_id', e.target.value)}
+                    >
+                      <option value="">Sélectionner...</option>
 
-  <div>
-    <label>Équipe extérieure</label>
+                      {Object.values(teams).map((team) => (
+                        <option key={team.id} value={team.id}>
+                          {team.code} - {team.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
 
-    <select
-      value={match.away_team_id || ''}
-      onChange={(e) =>
-        editMatch(match.id, 'away_team_id', e.target.value)
-      }
-    >
-      <option value="">Sélectionner...</option>
-
-      {Object.values(teams).map((team) => (
-        <option key={team.id} value={team.id}>
-          {team.code} - {team.name}
-        </option>
-      ))}
-    </select>
-  </div>
-</div>
-
-                
-
-
-
-                
                 <div className="grid">
                   <div>
                     <label>Score {homeName}</label>
