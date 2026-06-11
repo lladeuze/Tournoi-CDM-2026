@@ -333,28 +333,42 @@ export default function AdminPage() {
     await load();
   }
 
-  async function saveMatch(match: Match) {
-    const { error } = await supabase
-      .from('matches')
-      .update({
-        home_score: match.home_score,
-        away_score: match.away_score,
-        first_scoring_team_id: match.first_scoring_team_id || null,
-        first_scorer_id: match.first_scorer_id || null,
-        status: match.status,
-        home_team_id: match.home_team_id || null,
-        away_team_id: match.away_team_id || null,
-      })
-      .eq('id', match.id);
+ async function saveMatch(match: Match) {
+  setMessage('');
 
-    if (error) {
-      setMessage(`Erreur sauvegarde : ${error.message}`);
-      return;
-    }
+  console.log('Sauvegarde match', match);
 
-    setMessage('Résultat sauvegardé. Les points ont été recalculés automatiquement.');
-    await load();
+  const { data, error } = await supabase
+    .from('matches')
+    .update({
+      home_score: match.home_score,
+      away_score: match.away_score,
+      first_scoring_team_id: match.first_scoring_team_id || null,
+      first_scorer_id: match.first_scorer_id || null,
+      status: match.status,
+      home_team_id: match.home_team_id || null,
+      away_team_id: match.away_team_id || null,
+    })
+    .eq('id', match.id)
+    .select();
+
+  console.log('Résultat update', { data, error });
+
+  if (error) {
+    setMessage(`Erreur sauvegarde : ${error.message}`);
+    return;
   }
+
+  if (!data || data.length === 0) {
+    setMessage(
+      'Aucune ligne mise à jour. Vérifie les policies RLS de la table matches.'
+    );
+    return;
+  }
+
+  setMessage('Résultat sauvegardé.');
+  await load();
+}
 
   return (
     <main className="container">
