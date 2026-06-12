@@ -37,6 +37,10 @@ type Match = {
   status: string;
   phase: string;
   match_label: string | null;
+  home_score: number | null;
+  away_score: number | null;
+  first_scorer_id: string | null;
+  first_scoring_team_id: string | null;
 };
 
 type Prediction = {
@@ -159,6 +163,64 @@ function getPositionLabel(position: string | null) {
   if (position === 'GK') return '🧤 GK';
   return '❔';
 }
+
+function getResult(home: number, away: number) {
+  if (home > away) return 'HOME';
+  if (away > home) return 'AWAY';
+  return 'DRAW';
+}
+
+function calculateLivePoints(prediction: Prediction | undefined, match: Match) {
+  if (!prediction) return null;
+
+  if (
+    match.home_score === null ||
+    match.away_score === null ||
+    prediction.predicted_home_score === null ||
+    prediction.predicted_away_score === null
+  ) {
+    return null;
+  }
+
+  let points = 0;
+
+  const exactScore =
+    prediction.predicted_home_score === match.home_score &&
+    prediction.predicted_away_score === match.away_score;
+
+  const correctResult =
+    getResult(prediction.predicted_home_score, prediction.predicted_away_score) ===
+    getResult(match.home_score, match.away_score);
+
+  const firstScoringTeamCorrect =
+    !!prediction.predicted_first_scoring_team_id &&
+    !!match.first_scoring_team_id &&
+    prediction.predicted_first_scoring_team_id === match.first_scoring_team_id;
+
+  const firstScorerCorrect =
+    !!prediction.predicted_first_scorer_id &&
+    !!match.first_scorer_id &&
+    prediction.predicted_first_scorer_id === match.first_scorer_id;
+
+  if (exactScore) points += 5;
+  else if (correctResult) points += 3;
+
+  if (firstScoringTeamCorrect) points += 2;
+  if (firstScorerCorrect) points += 4;
+
+  if (prediction.double_bonus) {
+    points *= 2;
+  }
+
+  return {
+    points,
+    exactScore,
+    correctResult,
+    firstScoringTeamCorrect,
+    firstScorerCorrect,
+  };
+}
+
 
 export default function PredictionsPage() {
   const [matches, setMatches] = useState<Match[]>([]);
@@ -562,6 +624,11 @@ export default function PredictionsPage() {
 
     const p = predictions[match.id];
 
+    const livePreview =
+  (match.status === 'live' || match.status === 'active') && p
+    ? calculateLivePoints(p, match)
+    : null;
+
     if (!p) {
       return setMessage('Encode un score avant de sauver.');
     }
@@ -713,7 +780,9 @@ export default function PredictionsPage() {
             readOnly ? 'locked' : ''
           }`}
         >
-          <div className="points-pill">{p?.points ?? 0} pts</div>
+          <div className="points-pill">
+  {livePreview ? `${livePreview.points} pts live` : `${p?.points ?? 0} pts`}
+</div>
 
           <div className="prediction-badges">
             {!p && mode === 'upcoming' && (
@@ -736,6 +805,27 @@ export default function PredictionsPage() {
 
             {p?.points >= 11 && <span className="badge perfect">🏆 PERFECT</span>}
           </div>
+
+          {livePreview && (
+  <div
+    style={{
+      marginTop: 12,
+      marginBottom: 14,
+      padding: '12px 14px',
+      borderRadius: 14,
+      background: 'rgba(250, 204, 21, 0.12)',
+      border: '1px solid rgba(250, 204, 21, 0.35)',
+      color: '#fde68a',
+      fontWeight: 800,
+    }}
+  >
+    🔴 Points provisoires : {livePreview.points} pts
+
+    <div style={{ marginTop: 6, fontSize: '0.8rem', fontWeight: 500 }}>
+      Si le score actuel reste comme ça jusqu’à la fin du match.
+    </div>
+  </div>
+)}
 
           <p className="small">
             {phaseLabels[match.phase] || match.phase} ·{' '}
