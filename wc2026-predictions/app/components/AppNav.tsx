@@ -84,7 +84,7 @@ export default function AppNav() {
 
   return (
     <>
-      <header className="topbar">
+      <header className={`topbar${navCompact ? ' hidden' : ''}`}>
         <Link className="brand" href="/" aria-label="Accueil">
           <IconBall size={22} />
           <span className="brand-word">WC&nbsp;2026</span>

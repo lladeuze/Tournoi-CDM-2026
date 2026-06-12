@@ -108,7 +108,7 @@ body {
     var(--bg);
   background-attachment: fixed;
   /* clear fixed top bar + bottom nav (mobile) */
-  padding-top: env(safe-area-inset-top);
+  padding-top: calc(var(--topbar-h) + env(safe-area-inset-top));
   padding-bottom: calc(var(--bottomnav-h) + env(safe-area-inset-bottom));
   transition: background-color 0.3s var(--ease), color 0.3s var(--ease);
 }
@@ -160,19 +160,28 @@ p {
 
 /* ---------- Top bar ---------- */
 .topbar {
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: 0;
+  right: 0;
   z-index: 40;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  height: var(--topbar-h);
-  padding: 0 16px;
+  box-sizing: border-box;
+  height: calc(var(--topbar-h) + env(safe-area-inset-top));
+  padding: env(safe-area-inset-top) 16px 0;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
   backdrop-filter: blur(var(--glass-blur));
   -webkit-backdrop-filter: blur(var(--glass-blur));
+  transition: transform 0.32s var(--ease);
+}
+
+/* Instagram-style: hide the top bar when scrolling down */
+.topbar.hidden {
+  transform: translateY(-100%);
 }
 
 .brand {
