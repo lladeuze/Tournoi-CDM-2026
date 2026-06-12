@@ -769,21 +769,7 @@ async function syncTheSportsDB() {
           {filteredMatches.length === 0 && (
             <div className="card">
               <p>Aucun match ne correspond aux filtres.</p>
-            </div>
-
-
-          <div className="card">
-  <h2>⚡ Synchronisation API</h2>
-
-  <button onClick={syncTheSportsDB}>
-    Synchroniser TheSportsDB
-  </button>
-</div>
-
-
-
-
-          
+            </div>          
           )}
         </>
       )}
