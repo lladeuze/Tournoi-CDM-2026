@@ -622,12 +622,7 @@ export default function PredictionsPage() {
       return setMessage('Trop tard : le match a déjà commencé.');
     }
 
-    const p = predictions[match.id];
-
-    const livePreview =
-  (match.status === 'live' || match.status === 'active') && p
-    ? calculateLivePoints(p, match)
-    : null;
+    const p = predictions[match.id];  
 
     if (!p) {
       return setMessage('Encode un score avant de sauver.');
@@ -733,21 +728,16 @@ export default function PredictionsPage() {
   }
 
   function renderMatchCard(match: Match, mode: ViewMode) {
-    const locked = new Date(match.kickoff_at).getTime() <= Date.now();
-    const p = predictions[match.id];
+  const locked = new Date(match.kickoff_at).getTime() <= Date.now();
+  const p = predictions[match.id];
 
-    const homeTeam = match.home_team_id ? teams[match.home_team_id] : null;
-    const awayTeam = match.away_team_id ? teams[match.away_team_id] : null;
-
-    const availablePlayers = getMatchPlayers(match);
-    const filteredAvailablePlayers = getFilteredMatchPlayers(match);
-
-    const selectedPlayer = p?.predicted_first_scorer_id
-      ? players.find((player) => player.id === p.predicted_first_scorer_id) ||
-        getMatchPlayers(match).find(
-          (player) => player.id === p.predicted_first_scorer_id
-        )
+  const livePreview =
+    (match.status === 'live' || match.status === 'active') && p
+      ? calculateLivePoints(p, match)
       : null;
+
+  const homeTeam = match.home_team_id ? teams[match.home_team_id] : null;
+  const awayTeam = match.away_team_id ? teams[match.away_team_id] : null;
 
     const selectedScorerLabel = selectedPlayer
       ? `${selectedPlayer.name} — ${getPlayerAbr(selectedPlayer)}`
