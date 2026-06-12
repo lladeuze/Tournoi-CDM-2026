@@ -414,9 +414,10 @@ async function syncTheSportsDB() {
       {message && (
         <p
           className={
-            message.includes('sauvegardé') ||
-            message.includes('recalculés') ||
-            message.includes('mis à jour')
+           message.includes('sauvegardé') ||
+          message.includes('recalculés') ||
+message.includes('mis à jour') ||
+message.includes('terminée')
               ? 'success'
               : 'error'
           }
@@ -426,9 +427,22 @@ async function syncTheSportsDB() {
       )}
 
       {isAdmin && (
-        <>
-          <div className="card">
-            <h2>Filtres</h2>
+  <>
+    <div className="card">
+      <h2>⚡ Synchronisation API</h2>
+
+      <p className="small">
+        Permet de récupérer automatiquement les scores et statuts depuis TheSportsDB.
+        Le premier buteur et la première équipe qui marque restent modifiables manuellement.
+      </p>
+
+      <button type="button" onClick={syncTheSportsDB}>
+        Synchroniser TheSportsDB
+      </button>
+    </div>
+
+    <div className="card">
+      <h2>Filtres</h2>
 
             <div className="grid">
               <div>
