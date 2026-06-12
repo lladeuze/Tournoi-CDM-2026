@@ -39,16 +39,16 @@ export async function GET() {
       const awayName = event.strAwayTeam;
 
       const { data: homeTeam } = await supabaseAdmin
-        .from('teams')
-        .select('id')
-        .ilike('name', homeName)
-        .maybeSingle();
+  .from('teams')
+  .select('id')
+  .eq('thesportsdb_team_id', String(event.idHomeTeam))
+  .maybeSingle();
 
-      const { data: awayTeam } = await supabaseAdmin
-        .from('teams')
-        .select('id')
-        .ilike('name', awayName)
-        .maybeSingle();
+const { data: awayTeam } = await supabaseAdmin
+  .from('teams')
+  .select('id')
+  .eq('thesportsdb_team_id', String(event.idAwayTeam))
+  .maybeSingle();
 
       if (!homeTeam || !awayTeam) {
         results.push({
