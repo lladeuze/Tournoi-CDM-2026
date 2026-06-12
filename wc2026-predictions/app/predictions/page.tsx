@@ -745,6 +745,13 @@ export default function PredictionsPage() {
       ? p.predicted_first_scorer
       : 'Aucun buteur';
 
+    const selectedPlayer = p?.predicted_first_scorer_id
+  ? players.find((player) => player.id === p.predicted_first_scorer_id) ||
+    getMatchPlayers(match).find(
+      (player) => player.id === p.predicted_first_scorer_id
+    )
+  : null;
+
     const bonusUsedForPhase = bonusUsedByPhase[match.phase];
     const bonusUnavailable =
       !!bonusUsedForPhase && bonusUsedForPhase !== match.id;
