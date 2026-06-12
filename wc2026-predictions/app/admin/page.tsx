@@ -377,6 +377,36 @@ export default function AdminPage() {
     await load();
   }
 
+async function syncTheSportsDB() {
+  setMessage('Synchronisation en cours...');
+
+  try {
+    const response = await fetch('/api/admin/thesportsdb/sync-events');
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.error || 'Erreur inconnue');
+    }
+
+    setMessage(
+      `Synchronisation terminée : ${result.count} match(s) traité(s).`
+    );
+
+    await load();
+  } catch (error) {
+    setMessage(
+      error instanceof Error
+        ? error.message
+        : 'Erreur synchronisation TheSportsDB'
+    );
+  }
+}
+
+
+
+
+  
   return (
     <main className="container">
       <h1>Admin — Résultats</h1>
