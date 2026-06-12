@@ -121,13 +121,12 @@ export async function GET() {
       );
     }
 
-   const seasonEvents = await fetch(
-  `https://www.thesportsdb.com/api/v1/json/${API_KEY}/eventsseason.php?id=${LEAGUE_ID}&s=2026`,
-  { cache: 'no-store' }
-);
+   const [nextEvents, pastEvents] = await Promise.all([
+  fetchEvents('eventsnextleague'),
+  fetchEvents('eventspastleague'),
+]);
 
-const seasonData = await seasonEvents.json();
-const events = seasonData.events || [];
+const events = [...pastEvents, ...nextEvents];
     const results = [];
 
     for (const event of events) {
