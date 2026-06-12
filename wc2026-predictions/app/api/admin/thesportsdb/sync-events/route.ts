@@ -15,6 +15,17 @@ function mapStatus(status: string | null) {
   return 'scheduled';
 }
 
+function normalizeTeamName(name: string) {
+  return name
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/-/g, ' ')
+    .replace(/[^a-z0-9 ]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 async function fetchEvents(endpoint: string) {
   const response = await fetch(
     `https://www.thesportsdb.com/api/v1/json/${API_KEY}/${endpoint}.php?id=${LEAGUE_ID}`,
@@ -23,6 +34,82 @@ async function fetchEvents(endpoint: string) {
 
   const data = await response.json();
   return data.events || [];
+}
+
+async function findOrAutoMapTeam(apiTeamId: string, apiTeamName: string) {
+  const apiId = String(apiTeamId);
+
+  const { data: mappedTeam } = await supabaseAdmin
+    .from('teams')
+    .select('id, name, code, thesportsdb_team_id')
+    .eq('thesportsdb_team_id', apiId)
+    .maybeSingle();
+
+  if (mappedTeam) {
+    return {
+      team: mappedTeam,
+      autoMapped: false,
+      reason: 'already_mapped',
+      candidates: [],
+    };
+  }
+
+  const { data: exactNameTeam } = await supabaseAdmin
+    .from('teams')
+    .select('id, name, code, thesportsdb_team_id')
+    .ilike('name', apiTeamName)
+    .maybeSingle();
+
+  if (exactNameTeam) {
+    await supabaseAdmin
+      .from('teams')
+      .update({ thesportsdb_team_id: apiId })
+      .eq('id', exactNameTeam.id);
+
+    return {
+      team: exactNameTeam,
+      autoMapped: true,
+      reason: 'exact_name',
+      candidates: [],
+    };
+  }
+
+  const normalizedApiName = normalizeTeamName(apiTeamName);
+
+  const { data: teams } = await supabaseAdmin
+    .from('teams')
+    .select('id, name, code, thesportsdb_team_id');
+
+  const candidates = (teams || []).filter((team) => {
+    const normalizedDbName = normalizeTeamName(team.name);
+
+    return (
+      normalizedDbName === normalizedApiName ||
+      normalizedDbName.includes(normalizedApiName) ||
+      normalizedApiName.includes(normalizedDbName)
+    );
+  });
+
+  if (candidates.length === 1) {
+    await supabaseAdmin
+      .from('teams')
+      .update({ thesportsdb_team_id: apiId })
+      .eq('id', candidates[0].id);
+
+    return {
+      team: candidates[0],
+      autoMapped: true,
+      reason: 'normalized_name',
+      candidates: [],
+    };
+  }
+
+  return {
+    team: null,
+    autoMapped: false,
+    reason: candidates.length > 1 ? 'multiple_candidates' : 'not_found',
+    candidates,
+  };
 }
 
 export async function GET() {
@@ -40,21 +127,21 @@ export async function GET() {
     ]);
 
     const events = [...pastEvents, ...nextEvents];
-
     const results = [];
 
     for (const event of events) {
-      const { data: homeTeam } = await supabaseAdmin
-        .from('teams')
-        .select('id')
-        .eq('thesportsdb_team_id', String(event.idHomeTeam))
-        .maybeSingle();
+      const homeTeamResult = await findOrAutoMapTeam(
+        String(event.idHomeTeam),
+        event.strHomeTeam
+      );
 
-      const { data: awayTeam } = await supabaseAdmin
-        .from('teams')
-        .select('id')
-        .eq('thesportsdb_team_id', String(event.idAwayTeam))
-        .maybeSingle();
+      const awayTeamResult = await findOrAutoMapTeam(
+        String(event.idAwayTeam),
+        event.strAwayTeam
+      );
+
+      const homeTeam = homeTeamResult.team;
+      const awayTeam = awayTeamResult.team;
 
       if (!homeTeam || !awayTeam) {
         results.push({
@@ -64,6 +151,10 @@ export async function GET() {
           awayName: event.strAwayTeam,
           idHomeTeam: event.idHomeTeam,
           idAwayTeam: event.idAwayTeam,
+          homeReason: homeTeamResult.reason,
+          awayReason: awayTeamResult.reason,
+          homeCandidates: homeTeamResult.candidates,
+          awayCandidates: awayTeamResult.candidates,
         });
         continue;
       }
@@ -80,6 +171,8 @@ export async function GET() {
           event: event.strEvent,
           status: 'match_not_found',
           kickoff: event.strTimestamp,
+          homeTeam: event.strHomeTeam,
+          awayTeam: event.strAwayTeam,
         });
         continue;
       }
@@ -107,6 +200,10 @@ export async function GET() {
         event: event.strEvent,
         status: error ? 'error' : 'updated',
         error: error?.message || null,
+        homeAutoMapped: homeTeamResult.autoMapped,
+        awayAutoMapped: awayTeamResult.autoMapped,
+        homeMapReason: homeTeamResult.reason,
+        awayMapReason: awayTeamResult.reason,
       });
     }
 
@@ -114,6 +211,9 @@ export async function GET() {
       success: true,
       count: results.length,
       updated: results.filter((r) => r.status === 'updated').length,
+      autoMapped: results.filter(
+        (r) => r.homeAutoMapped || r.awayAutoMapped
+      ).length,
       teamNotFound: results.filter((r) => r.status === 'team_not_found'),
       matchNotFound: results.filter((r) => r.status === 'match_not_found'),
       results,
