@@ -896,6 +896,40 @@ export default function AdminPage() {
     );
   }
 
+  function renderDateNavigation() {
+    return (
+      <div className="card">
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            gap: 12,
+            alignItems: 'center',
+            flexWrap: 'wrap',
+          }}
+        >
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => setSelectedDate((date) => addDays(date, -1))}
+          >
+            ◀ Jour précédent
+          </button>
+
+          <h2 style={{ margin: 0, textAlign: 'center' }}>{formatDateTitle(selectedDate)}</h2>
+
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => setSelectedDate((date) => addDays(date, 1))}
+          >
+            Jour suivant ▶
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <main className="container">
       <h1>Admin — Résultats</h1>
@@ -969,27 +1003,7 @@ export default function AdminPage() {
             </div>
           </div>
 
-          <div className="card">
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                gap: 12,
-                alignItems: 'center',
-                flexWrap: 'wrap',
-              }}
-            >
-              <button type="button" className="secondary" onClick={() => setSelectedDate((date) => addDays(date, -1))}>
-                ◀ Jour précédent
-              </button>
-
-              <h2 style={{ margin: 0, textAlign: 'center' }}>{formatDateTitle(selectedDate)}</h2>
-
-              <button type="button" className="secondary" onClick={() => setSelectedDate((date) => addDays(date, 1))}>
-                Jour suivant ▶
-              </button>
-            </div>
-          </div>
+          {renderDateNavigation()}
 
           <div className="card">
             <h2>🏆 Champion officiel</h2>
@@ -1031,6 +1045,8 @@ export default function AdminPage() {
               {matchesForSelectedDate.map((match) => renderMatchCard(match))}
             </div>
           )}
+
+          {renderDateNavigation()}
         </>
       )}
     </main>
