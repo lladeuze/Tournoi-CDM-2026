@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 
 type LeaderboardRow = {
@@ -12,11 +12,16 @@ type LeaderboardRow = {
   correct_results_count: number;
   first_scorers_count: number;
   champion_bonus_points: number;
+
+  // Colonnes optionnelles si elles existent déjà dans ta vue leaderboard.
+  // Si elles n'existent pas, la page fonctionne quand même avec 0.
+  awards_bonus_points?: number | null;
+  awards_total_points?: number | null;
   best_player_points?: number | null;
   top_scorer_points?: number | null;
   top_assist_points?: number | null;
+  top_assister_points?: number | null;
   best_goalkeeper_points?: number | null;
-  tournament_bonus_points?: number | null;
 };
 
 type League = {
@@ -116,7 +121,14 @@ export default function LeaderboardPage() {
 
     setRows((leaderboardData || []) as LeaderboardRow[]);
     setLeagues(normalizedLeagues);
-    setSelectedLeagueId(normalizedLeagues.length > 0 ? normalizedLeagues[0].id : 'global');
+
+    if (normalizedLeagues.length > 0) {
+      setSelectedLeagueId((current) =>
+        current === 'global' ? normalizedLeagues[0].id : current
+      );
+    } else {
+      setSelectedLeagueId('global');
+    }
 
     const leagueIds = normalizedLeagues.map((league) => league.id);
 
@@ -156,280 +168,163 @@ export default function LeaderboardPage() {
     return leagues.find((league) => league.id === selectedLeagueId) || null;
   }, [leagues, selectedLeagueId]);
 
-  const totals = useMemo(() => {
-    return filteredRows.reduce(
-      (acc, row) => {
-        acc.points += row.total_points || 0;
-        acc.matchPronos += row.predictions_count || 0;
-        acc.tournamentPronos += getTournamentPredictionCount(row);
-        return acc;
-      },
-      { points: 0, matchPronos: 0, tournamentPronos: 0 }
-    );
-  }, [filteredRows]);
+  const podium = useMemo(() => filteredRows.slice(0, 3), [filteredRows]);
 
   function medal(index: number) {
     if (index === 0) return '🥇';
     if (index === 1) return '🥈';
     if (index === 2) return '🥉';
-    return `#${index + 1}`;
+    return '';
   }
 
-  function getTournamentPoints(row: LeaderboardRow) {
+  function getAwardPoints(player: LeaderboardRow) {
     return (
-      row.tournament_bonus_points ??
-      (row.champion_bonus_points || 0) +
-        (row.best_player_points || 0) +
-        (row.top_scorer_points || 0) +
-        (row.top_assist_points || 0) +
-        (row.best_goalkeeper_points || 0)
+      player.awards_bonus_points ??
+      player.awards_total_points ??
+      (player.best_player_points ?? 0) +
+        (player.top_scorer_points ?? 0) +
+        (player.top_assist_points ?? player.top_assister_points ?? 0) +
+        (player.best_goalkeeper_points ?? 0)
     );
   }
 
-  function getTournamentPredictionCount(row: LeaderboardRow) {
-    let count = 0;
-
-    if ((row.champion_bonus_points || 0) > 0) count += 1;
-    if ((row.best_player_points || 0) > 0) count += 1;
-    if ((row.top_scorer_points || 0) > 0) count += 1;
-    if ((row.top_assist_points || 0) > 0) count += 1;
-    if ((row.best_goalkeeper_points || 0) > 0) count += 1;
-
-    return count;
+  function getTournamentPredictionPoints(player: LeaderboardRow) {
+    return (player.champion_bonus_points ?? 0) + getAwardPoints(player);
   }
 
-  function toggleDetail(userId: string) {
-    setOpenedUserId((current) => (current === userId ? null : userId));
+  function getMatchPredictionPoints(player: LeaderboardRow) {
+    return Math.max(
+      0,
+      (player.total_points ?? 0) - getTournamentPredictionPoints(player)
+    );
+  }
+
+  function getTotalPredictionsLabel(player: LeaderboardRow) {
+    const tournamentPredictionsCount = 5; // champion + 4 trophées individuels
+    return player.predictions_count + tournamentPredictionsCount;
+  }
+
+  function renderDetails(player: LeaderboardRow) {
+    const awardPoints = getAwardPoints(player);
+    const topAssistPoints = player.top_assist_points ?? player.top_assister_points ?? 0;
+
+    return (
+      <tr>
+        <td colSpan={6} style={{ padding: 0 }}>
+          <div
+            style={{
+              margin: '0 10px 14px 10px',
+              padding: 16,
+              borderRadius: 14,
+              background: 'rgba(15, 23, 42, 0.72)',
+              border: '1px solid rgba(255,255,255,0.10)',
+            }}
+          >
+            <h3 style={{ marginTop: 0, marginBottom: 12 }}>
+              Détail des points de {player.username}
+            </h3>
+
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                gap: 12,
+              }}
+            >
+              <div className="card" style={{ margin: 0 }}>
+                <p className="small">Points matchs</p>
+                <h2 style={{ margin: 0 }}>{getMatchPredictionPoints(player)} pts</h2>
+                <p className="small" style={{ marginBottom: 0 }}>
+                  {player.predictions_count} prono(s) match
+                </p>
+              </div>
+
+              <div className="card" style={{ margin: 0 }}>
+                <p className="small">Champion</p>
+                <h2 style={{ margin: 0 }}>+{player.champion_bonus_points ?? 0} pts</h2>
+                <p className="small" style={{ marginBottom: 0 }}>
+                  Pronostic champion du monde
+                </p>
+              </div>
+
+              <div className="card" style={{ margin: 0 }}>
+                <p className="small">Trophées individuels</p>
+                <h2 style={{ margin: 0 }}>+{awardPoints} pts</h2>
+                <p className="small" style={{ marginBottom: 0 }}>
+                  Joueur, buteur, passeur, gardien
+                </p>
+              </div>
+            </div>
+
+            <div style={{ overflowX: 'auto', marginTop: 14 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <tbody>
+                  <tr style={{ borderTop: '1px solid rgba(255,255,255,0.10)' }}>
+                    <td style={{ padding: 10 }}>🎯 Scores exacts</td>
+                    <td style={{ padding: 10, fontWeight: 800 }}>
+                      {player.exact_scores_count}
+                    </td>
+                  </tr>
+
+                  <tr style={{ borderTop: '1px solid rgba(255,255,255,0.10)' }}>
+                    <td style={{ padding: 10 }}>✅ Bons résultats</td>
+                    <td style={{ padding: 10, fontWeight: 800 }}>
+                      {player.correct_results_count}
+                    </td>
+                  </tr>
+
+                  <tr style={{ borderTop: '1px solid rgba(255,255,255,0.10)' }}>
+                    <td style={{ padding: 10 }}>⚽ Premiers buteurs trouvés</td>
+                    <td style={{ padding: 10, fontWeight: 800 }}>
+                      {player.first_scorers_count}
+                    </td>
+                  </tr>
+
+                  <tr style={{ borderTop: '1px solid rgba(255,255,255,0.10)' }}>
+                    <td style={{ padding: 10 }}>🏆 Champion</td>
+                    <td style={{ padding: 10, fontWeight: 800 }}>
+                      +{player.champion_bonus_points ?? 0} pts
+                    </td>
+                  </tr>
+
+                  <tr style={{ borderTop: '1px solid rgba(255,255,255,0.10)' }}>
+                    <td style={{ padding: 10 }}>⭐ Meilleur joueur</td>
+                    <td style={{ padding: 10, fontWeight: 800 }}>
+                      +{player.best_player_points ?? 0} pts
+                    </td>
+                  </tr>
+
+                  <tr style={{ borderTop: '1px solid rgba(255,255,255,0.10)' }}>
+                    <td style={{ padding: 10 }}>🥅 Meilleur buteur</td>
+                    <td style={{ padding: 10, fontWeight: 800 }}>
+                      +{player.top_scorer_points ?? 0} pts
+                    </td>
+                  </tr>
+
+                  <tr style={{ borderTop: '1px solid rgba(255,255,255,0.10)' }}>
+                    <td style={{ padding: 10 }}>🎁 Meilleur passeur</td>
+                    <td style={{ padding: 10, fontWeight: 800 }}>
+                      +{topAssistPoints} pts
+                    </td>
+                  </tr>
+
+                  <tr style={{ borderTop: '1px solid rgba(255,255,255,0.10)' }}>
+                    <td style={{ padding: 10 }}>🧤 Meilleur gardien</td>
+                    <td style={{ padding: 10, fontWeight: 800 }}>
+                      +{player.best_goalkeeper_points ?? 0} pts
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </td>
+      </tr>
+    );
   }
 
   return (
     <main className="container">
-      <style jsx>{`
-        .leaderboard-card {
-          overflow: hidden;
-        }
-
-        .summary-grid {
-          display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
-          gap: 12px;
-          margin: 18px 0 22px;
-        }
-
-        .summary-box {
-          border: 1px solid rgba(255, 255, 255, 0.12);
-          background: rgba(15, 23, 42, 0.72);
-          border-radius: 16px;
-          padding: 14px 16px;
-        }
-
-        .summary-label {
-          color: #bfdbfe;
-          font-size: 0.88rem;
-          margin-bottom: 6px;
-        }
-
-        .summary-value {
-          color: white;
-          font-size: 1.6rem;
-          font-weight: 900;
-          line-height: 1;
-        }
-
-        .table-scroll {
-          overflow-x: auto;
-          overflow-y: hidden;
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          border-radius: 18px;
-          -webkit-overflow-scrolling: touch;
-        }
-
-        .leaderboard-table {
-          width: 100%;
-          min-width: 980px;
-          border-collapse: separate;
-          border-spacing: 0;
-        }
-
-        .leaderboard-table th {
-          position: sticky;
-          top: 0;
-          z-index: 3;
-          background: #071527;
-          color: #facc15;
-          text-align: left;
-          font-size: 0.78rem;
-          letter-spacing: 0.04em;
-          text-transform: uppercase;
-          padding: 14px 12px;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.14);
-          white-space: nowrap;
-        }
-
-        .leaderboard-table td {
-          padding: 14px 12px;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.09);
-          background: rgba(8, 20, 36, 0.92);
-          white-space: nowrap;
-          vertical-align: middle;
-        }
-
-        .leaderboard-table tbody tr:hover td {
-          background: rgba(15, 35, 61, 0.96);
-        }
-
-        .sticky-rank {
-          position: sticky;
-          left: 0;
-          z-index: 2;
-          width: 78px;
-          min-width: 78px;
-          text-align: center;
-          box-shadow: 10px 0 16px rgba(0, 0, 0, 0.18);
-        }
-
-        .sticky-player {
-          position: sticky;
-          left: 78px;
-          z-index: 2;
-          width: 180px;
-          min-width: 180px;
-          box-shadow: 10px 0 16px rgba(0, 0, 0, 0.18);
-        }
-
-        th.sticky-rank,
-        th.sticky-player {
-          z-index: 5;
-          background: #071527;
-        }
-
-        td.sticky-rank,
-        td.sticky-player {
-          background: #081a2f;
-        }
-
-        .rank-badge {
-          font-weight: 900;
-          font-size: 1rem;
-        }
-
-        .player-name {
-          font-weight: 900;
-          color: white;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          max-width: 150px;
-        }
-
-        .points-pill-leaderboard {
-          display: inline-flex;
-          min-width: 48px;
-          justify-content: center;
-          padding: 8px 12px;
-          border-radius: 12px;
-          border: 1px solid rgba(250, 204, 21, 0.58);
-          color: #facc15;
-          font-weight: 950;
-          font-size: 1.05rem;
-          background: rgba(250, 204, 21, 0.08);
-        }
-
-        .stat-blue {
-          color: #38bdf8;
-          font-weight: 900;
-        }
-
-        .stat-green {
-          color: #4ade80;
-          font-weight: 900;
-        }
-
-        .stat-purple {
-          color: #c084fc;
-          font-weight: 900;
-        }
-
-        .stat-gold {
-          color: #facc15;
-          font-weight: 900;
-        }
-
-        .detail-row td {
-          background: rgba(2, 10, 22, 0.96) !important;
-          white-space: normal;
-        }
-
-        .detail-panel {
-          display: grid;
-          grid-template-columns: repeat(5, minmax(130px, 1fr));
-          gap: 10px;
-        }
-
-        .detail-item {
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          border-radius: 14px;
-          padding: 12px;
-          background: rgba(15, 23, 42, 0.82);
-        }
-
-        .detail-title {
-          color: #bfdbfe;
-          font-size: 0.78rem;
-          margin-bottom: 5px;
-        }
-
-        .detail-value {
-          font-size: 1.1rem;
-          font-weight: 900;
-        }
-
-        .table-hint {
-          display: none;
-        }
-
-        @media (max-width: 760px) {
-          .summary-grid {
-            grid-template-columns: 1fr;
-          }
-
-          .table-hint {
-            display: block;
-            margin: -6px 0 12px;
-            color: #bfdbfe;
-            font-size: 0.85rem;
-          }
-
-          .leaderboard-table {
-            min-width: 900px;
-          }
-
-          .sticky-rank {
-            width: 58px;
-            min-width: 58px;
-          }
-
-          .sticky-player {
-            left: 58px;
-            width: 132px;
-            min-width: 132px;
-          }
-
-          .player-name {
-            max-width: 104px;
-          }
-
-          .leaderboard-table th,
-          .leaderboard-table td {
-            padding: 12px 10px;
-            font-size: 0.9rem;
-          }
-
-          .detail-panel {
-            grid-template-columns: repeat(2, minmax(120px, 1fr));
-          }
-        }
-      `}</style>
-
       <h1>
         🏆{' '}
         {selectedLeagueId === 'global'
@@ -476,60 +371,141 @@ export default function LeaderboardPage() {
         </div>
       )}
 
+      {!loading && podium.length > 0 && (
+        <section
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+            gap: 16,
+            alignItems: 'end',
+            marginTop: 24,
+            marginBottom: 32,
+          }}
+        >
+          {podium.map((player, index) => {
+            const isFirst = index === 0;
+            const tournamentPoints = getTournamentPredictionPoints(player);
+
+            return (
+              <div
+                key={player.user_id}
+                className="card"
+                style={{
+                  textAlign: 'center',
+                  border: isFirst
+                    ? '2px solid rgba(250, 204, 21, 0.8)'
+                    : '1px solid rgba(255,255,255,0.14)',
+                  transform: isFirst ? 'scale(1.04)' : 'scale(1)',
+                  boxShadow: isFirst
+                    ? '0 0 35px rgba(250, 204, 21, 0.22)'
+                    : 'none',
+                }}
+              >
+                <div style={{ fontSize: 44 }}>{medal(index)}</div>
+
+                <p className="small">#{index + 1}</p>
+
+                <h2 style={{ marginBottom: 8 }}>{player.username}</h2>
+
+                <p
+                  style={{
+                    fontSize: 32,
+                    fontWeight: 900,
+                    margin: 0,
+                  }}
+                >
+                  {player.total_points} pts
+                </p>
+
+                {tournamentPoints > 0 && (
+                  <p className="small" style={{ marginTop: 8 }}>
+                    🏆 Pronos tournoi : +{tournamentPoints}
+                  </p>
+                )}
+
+                <p className="small" style={{ marginTop: 12 }}>
+                  🎯 {player.exact_scores_count} score(s) exact(s)
+                  <br />
+                  ⚽ {player.first_scorers_count} buteur(s) trouvé(s)
+                </p>
+              </div>
+            );
+          })}
+        </section>
+      )}
+
       {!loading && filteredRows.length > 0 && (
-        <section className="card leaderboard-card">
+        <section className="card">
           <h2>Classement complet</h2>
 
-          <div className="summary-grid">
-            <div className="summary-box">
-              <div className="summary-label">Total points</div>
-              <div className="summary-value">{totals.points}</div>
-            </div>
-
-            <div className="summary-box">
-              <div className="summary-label">Pronos matchs</div>
-              <div className="summary-value">{totals.matchPronos}</div>
-            </div>
-
-            <div className="summary-box">
-              <div className="summary-label">Pronos tournoi gagnants</div>
-              <div className="summary-value">{totals.tournamentPronos}</div>
-            </div>
-          </div>
-
-          <p className="table-hint">Glisse le tableau vers la gauche/droite pour voir toutes les colonnes.</p>
-
-          <div className="table-scroll">
-            <table className="leaderboard-table">
+          <div style={{ overflowX: 'auto' }}>
+            <table
+              style={{
+                width: '100%',
+                borderCollapse: 'collapse',
+                marginTop: 16,
+              }}
+            >
               <thead>
-                <tr>
-                  <th className="sticky-rank">Rang</th>
-                  <th className="sticky-player">Joueur</th>
-                  <th>⭐ Points</th>
-                  <th>🎯 Scores exacts</th>
-                  <th>⚽ Buteurs trouvés</th>
-                  <th>✅ Bons résultats</th>
-                  <th>🏆 Pronos tournoi</th>
-                  <th>📋 Pronos matchs</th>
-                  <th>Détail</th>
+                <tr style={{ textAlign: 'left' }}>
+                  <th style={{ padding: 10 }}>Rang</th>
+                  <th style={{ padding: 10 }}>Joueur</th>
+                  <th style={{ padding: 10 }}>Points</th>
+                  <th style={{ padding: 10 }}>Total pronos</th>
+                  <th style={{ padding: 10 }}>Pronos tournoi</th>
+                  <th style={{ padding: 10 }}>Détail</th>
                 </tr>
               </thead>
 
               <tbody>
                 {filteredRows.map((player, index) => {
                   const isOpen = openedUserId === player.user_id;
-                  const tournamentPoints = getTournamentPoints(player);
+                  const tournamentPoints = getTournamentPredictionPoints(player);
 
                   return (
-                    <FragmentRow
-                      key={player.user_id}
-                      player={player}
-                      index={index}
-                      isOpen={isOpen}
-                      tournamentPoints={tournamentPoints}
-                      medal={medal}
-                      toggleDetail={toggleDetail}
-                    />
+                    <>
+                      <tr
+                        key={player.user_id}
+                        style={{
+                          borderTop: '1px solid rgba(255,255,255,0.10)',
+                        }}
+                      >
+                        <td style={{ padding: 10, fontWeight: 800 }}>
+                          {index < 3 ? medal(index) : `#${index + 1}`}
+                        </td>
+
+                        <td style={{ padding: 10, fontWeight: 700 }}>
+                          {player.username}
+                        </td>
+
+                        <td style={{ padding: 10, fontWeight: 900 }}>
+                          {player.total_points}
+                        </td>
+
+                        <td style={{ padding: 10 }}>
+                          {getTotalPredictionsLabel(player)}
+                          <span className="small"> dont {player.predictions_count} matchs</span>
+                        </td>
+
+                        <td style={{ padding: 10, fontWeight: 800 }}>
+                          +{tournamentPoints} pts
+                        </td>
+
+                        <td style={{ padding: 10 }}>
+                          <button
+                            type="button"
+                            className="secondary"
+                            onClick={() =>
+                              setOpenedUserId(isOpen ? null : player.user_id)
+                            }
+                          >
+                            {isOpen ? 'Masquer' : 'Voir le détail'}
+                          </button>
+                        </td>
+                      </tr>
+
+                      {isOpen && renderDetails(player)}
+                    </>
                   );
                 })}
               </tbody>
@@ -538,102 +514,5 @@ export default function LeaderboardPage() {
         </section>
       )}
     </main>
-  );
-}
-
-type FragmentRowProps = {
-  player: LeaderboardRow;
-  index: number;
-  isOpen: boolean;
-  tournamentPoints: number;
-  medal: (index: number) => string;
-  toggleDetail: (userId: string) => void;
-};
-
-function FragmentRow({
-  player,
-  index,
-  isOpen,
-  tournamentPoints,
-  medal,
-  toggleDetail,
-}: FragmentRowProps) {
-  return (
-    <>
-      <tr>
-        <td className="sticky-rank">
-          <span className="rank-badge">{medal(index)}</span>
-        </td>
-
-        <td className="sticky-player">
-          <div className="player-name">{player.username}</div>
-        </td>
-
-        <td>
-          <span className="points-pill-leaderboard">{player.total_points}</span>
-        </td>
-
-        <td>
-          <span className="stat-blue">{player.exact_scores_count}</span>
-        </td>
-
-        <td>
-          <span className="stat-green">{player.first_scorers_count}</span>
-        </td>
-
-        <td>
-          <span className="stat-purple">{player.correct_results_count}</span>
-        </td>
-
-        <td>
-          <span className="stat-gold">+{tournamentPoints} pts</span>
-        </td>
-
-        <td>{player.predictions_count}</td>
-
-        <td>
-          <button type="button" className="secondary" onClick={() => toggleDetail(player.user_id)}>
-            {isOpen ? 'Masquer' : 'Voir le détail'}
-          </button>
-        </td>
-      </tr>
-
-      {isOpen && (
-        <tr className="detail-row">
-          <td className="sticky-rank" />
-          <td className="sticky-player">
-            <strong>Détail</strong>
-          </td>
-          <td colSpan={7}>
-            <div className="detail-panel">
-              <div className="detail-item">
-                <div className="detail-title">Champion</div>
-                <div className="detail-value">+{player.champion_bonus_points ?? 0} pts</div>
-              </div>
-
-              <div className="detail-item">
-                <div className="detail-title">Meilleur joueur</div>
-                <div className="detail-value">+{player.best_player_points ?? 0} pts</div>
-              </div>
-
-              <div className="detail-item">
-                <div className="detail-title">Meilleur buteur</div>
-                <div className="detail-value">+{player.top_scorer_points ?? 0} pts</div>
-              </div>
-
-              <div className="detail-item">
-                <div className="detail-title">Meilleur passeur</div>
-                <div className="detail-value">+{player.top_assist_points ?? 0} pts</div>
-              </div>
-
-              <div className="detail-item">
-                <div className="detail-title">Meilleur gardien</div>
-                <div className="detail-value">+{player.best_goalkeeper_points ?? 0} pts</div>
-              </div>
-            </div>
-          </td>
-        </tr>
-      )}
-    </>
   );
 }
