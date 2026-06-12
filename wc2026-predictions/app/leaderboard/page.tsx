@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 
 type LeaderboardRow = {
@@ -170,6 +170,21 @@ export default function LeaderboardPage() {
 
   const podium = useMemo(() => filteredRows.slice(0, 3), [filteredRows]);
 
+  const rankingStats = useMemo(() => {
+    const tournamentPredictionsCount = filteredRows.length * 5;
+    const matchPredictionsCount = filteredRows.reduce(
+      (sum, player) => sum + (player.predictions_count ?? 0),
+      0
+    );
+
+    return {
+      playersCount: filteredRows.length,
+      matchPredictionsCount,
+      tournamentPredictionsCount,
+      totalPredictionsCount: matchPredictionsCount + tournamentPredictionsCount,
+    };
+  }, [filteredRows]);
+
   function medal(index: number) {
     if (index === 0) return '🥇';
     if (index === 1) return '🥈';
@@ -199,10 +214,6 @@ export default function LeaderboardPage() {
     );
   }
 
-  function getTotalPredictionsLabel(player: LeaderboardRow) {
-    const tournamentPredictionsCount = 5; // champion + 4 trophées individuels
-    return player.predictions_count + tournamentPredictionsCount;
-  }
 
   function renderDetails(player: LeaderboardRow) {
     const awardPoints = getAwardPoints(player);
@@ -210,7 +221,7 @@ export default function LeaderboardPage() {
 
     return (
       <tr>
-        <td colSpan={6} style={{ padding: 0 }}>
+        <td colSpan={8} style={{ padding: 0 }}>
           <div
             style={{
               margin: '0 10px 14px 10px',
@@ -438,6 +449,58 @@ export default function LeaderboardPage() {
         <section className="card">
           <h2>Classement complet</h2>
 
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+              gap: 12,
+              marginTop: 16,
+              marginBottom: 12,
+            }}
+          >
+            <div
+              style={{
+                padding: 14,
+                borderRadius: 14,
+                background: 'rgba(15, 23, 42, 0.72)',
+                border: '1px solid rgba(255,255,255,0.10)',
+              }}
+            >
+              <p className="small" style={{ margin: 0 }}>Total pronos</p>
+              <h2 style={{ margin: '6px 0 0 0' }}>
+                {rankingStats.totalPredictionsCount}
+              </h2>
+            </div>
+
+            <div
+              style={{
+                padding: 14,
+                borderRadius: 14,
+                background: 'rgba(15, 23, 42, 0.72)',
+                border: '1px solid rgba(255,255,255,0.10)',
+              }}
+            >
+              <p className="small" style={{ margin: 0 }}>Pronos matchs</p>
+              <h2 style={{ margin: '6px 0 0 0' }}>
+                {rankingStats.matchPredictionsCount}
+              </h2>
+            </div>
+
+            <div
+              style={{
+                padding: 14,
+                borderRadius: 14,
+                background: 'rgba(15, 23, 42, 0.72)',
+                border: '1px solid rgba(255,255,255,0.10)',
+              }}
+            >
+              <p className="small" style={{ margin: 0 }}>Pronos tournoi</p>
+              <h2 style={{ margin: '6px 0 0 0' }}>
+                {rankingStats.tournamentPredictionsCount}
+              </h2>
+            </div>
+          </div>
+
           <div style={{ overflowX: 'auto' }}>
             <table
               style={{
@@ -451,7 +514,9 @@ export default function LeaderboardPage() {
                   <th style={{ padding: 10 }}>Rang</th>
                   <th style={{ padding: 10 }}>Joueur</th>
                   <th style={{ padding: 10 }}>Points</th>
-                  <th style={{ padding: 10 }}>Total pronos</th>
+                  <th style={{ padding: 10 }}>Scores exacts</th>
+                  <th style={{ padding: 10 }}>Buteurs trouvés</th>
+                  <th style={{ padding: 10 }}>Bons résultats</th>
                   <th style={{ padding: 10 }}>Pronos tournoi</th>
                   <th style={{ padding: 10 }}>Détail</th>
                 </tr>
@@ -463,9 +528,8 @@ export default function LeaderboardPage() {
                   const tournamentPoints = getTournamentPredictionPoints(player);
 
                   return (
-                    <>
+                    <Fragment key={player.user_id}>
                       <tr
-                        key={player.user_id}
                         style={{
                           borderTop: '1px solid rgba(255,255,255,0.10)',
                         }}
@@ -482,9 +546,16 @@ export default function LeaderboardPage() {
                           {player.total_points}
                         </td>
 
-                        <td style={{ padding: 10 }}>
-                          {getTotalPredictionsLabel(player)}
-                          <span className="small"> dont {player.predictions_count} matchs</span>
+                        <td style={{ padding: 10, fontWeight: 800 }}>
+                          {player.exact_scores_count}
+                        </td>
+
+                        <td style={{ padding: 10, fontWeight: 800 }}>
+                          {player.first_scorers_count}
+                        </td>
+
+                        <td style={{ padding: 10, fontWeight: 800 }}>
+                          {player.correct_results_count}
                         </td>
 
                         <td style={{ padding: 10, fontWeight: 800 }}>
@@ -505,7 +576,7 @@ export default function LeaderboardPage() {
                       </tr>
 
                       {isOpen && renderDetails(player)}
-                    </>
+                    </Fragment>
                   );
                 })}
               </tbody>
