@@ -1056,6 +1056,42 @@ export default function PredictionsPage() {
     );
   }
 
+  function renderDateNavigation() {
+    return (
+      <div className="card">
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            gap: 12,
+            alignItems: 'center',
+            flexWrap: 'wrap',
+          }}
+        >
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => setSelectedDate((date) => addDays(date, -1))}
+          >
+            ◀ Jour précédent
+          </button>
+
+          <h2 style={{ margin: 0, textAlign: 'center' }}>
+            {formatDateTitle(selectedDate)}
+          </h2>
+
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => setSelectedDate((date) => addDays(date, 1))}
+          >
+            Jour suivant ▶
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <main className="container">
       <h1>Mes pronostics</h1>
@@ -1116,37 +1152,7 @@ export default function PredictionsPage() {
 
       {viewMode === 'upcoming' && (
         <>
-          <div className="card">
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                gap: 12,
-                alignItems: 'center',
-                flexWrap: 'wrap',
-              }}
-            >
-              <button
-                type="button"
-                className="secondary"
-                onClick={() => setSelectedDate((date) => addDays(date, -1))}
-              >
-                ◀ Jour précédent
-              </button>
-
-              <h2 style={{ margin: 0, textAlign: 'center' }}>
-                {formatDateTitle(selectedDate)}
-              </h2>
-
-              <button
-                type="button"
-                className="secondary"
-                onClick={() => setSelectedDate((date) => addDays(date, 1))}
-              >
-                Jour suivant ▶
-              </button>
-            </div>
-          </div>
+          {renderDateNavigation()}
 
           <div className="card">
             <h2>🏆 Pronostic Champion du Monde</h2>
@@ -1174,6 +1180,8 @@ export default function PredictionsPage() {
               )}
             </div>
           )}
+
+          {renderDateNavigation()}
         </>
       )}
 
