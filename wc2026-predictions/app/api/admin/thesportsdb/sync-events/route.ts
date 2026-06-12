@@ -121,13 +121,13 @@ export async function GET() {
       );
     }
 
-   const [nextEvents, pastEvents] = await Promise.all([
-  fetchEvents('eventsnextleague'),
-  fetchEvents('eventspastleague'),
-]);
+   const response = await fetch(
+  `https://www.thesportsdb.com/api/v1/json/${API_KEY}/eventsseason.php?id=${LEAGUE_ID}&s=2026`,
+  { cache: 'no-store' }
+);
 
-const events = [...pastEvents, ...nextEvents];
-    const results = [];
+const data = await response.json();
+const events = data.events || [];
 
     for (const event of events) {
       const homeTeamResult = await findOrAutoMapTeam(
