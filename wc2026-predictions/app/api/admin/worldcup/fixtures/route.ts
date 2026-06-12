@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-const BASE_URL = 'https://worldcupapi.com';
+const BASE_URL = 'https://api.worldcupapi.com';
 
 export async function GET() {
   try {
@@ -13,17 +13,14 @@ export async function GET() {
       );
     }
 
-    const url = `${BASE_URL}/fixtures?key=${apiKey}&lang=fr`;
-
-    const response = await fetch(url, {
+    const response = await fetch(`${BASE_URL}/fixtures?key=${apiKey}&lang=fr`, {
       cache: 'no-store',
     });
 
     const text = await response.text();
 
     try {
-      const data = JSON.parse(text);
-      return NextResponse.json(data);
+      return NextResponse.json(JSON.parse(text));
     } catch {
       return NextResponse.json(
         {
@@ -37,10 +34,7 @@ export async function GET() {
     }
   } catch (error) {
     return NextResponse.json(
-      {
-        error: 'Erreur WorldCupAPI',
-        details: String(error),
-      },
+      { error: 'Erreur WorldCupAPI', details: String(error) },
       { status: 500 }
     );
   }
