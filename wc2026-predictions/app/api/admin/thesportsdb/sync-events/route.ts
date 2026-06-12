@@ -15,47 +15,55 @@ function mapStatus(status: string | null) {
   return 'scheduled';
 }
 
+async function fetchEvents(endpoint: string) {
+  const response = await fetch(
+    `https://www.thesportsdb.com/api/v1/json/${API_KEY}/${endpoint}.php?id=${LEAGUE_ID}`,
+    { cache: 'no-store' }
+  );
+
+  const data = await response.json();
+  return data.events || [];
+}
+
 export async function GET() {
   try {
     if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
       return NextResponse.json(
-        { error: 'SUPABASE_SERVICE_ROLE_KEY manquante dans .env.local / Vercel' },
+        { error: 'SUPABASE_SERVICE_ROLE_KEY manquante' },
         { status: 500 }
       );
     }
 
-    const response = await fetch(
-      `https://www.thesportsdb.com/api/v1/json/${API_KEY}/eventsnextleague.php?id=${LEAGUE_ID}`,
-      { cache: 'no-store' }
-    );
+    const [nextEvents, pastEvents] = await Promise.all([
+      fetchEvents('eventsnextleague'),
+      fetchEvents('eventspastleague'),
+    ]);
 
-    const data = await response.json();
-    const events = data.events || [];
+    const events = [...pastEvents, ...nextEvents];
 
     const results = [];
 
     for (const event of events) {
-      const homeName = event.strHomeTeam;
-      const awayName = event.strAwayTeam;
-
       const { data: homeTeam } = await supabaseAdmin
-  .from('teams')
-  .select('id')
-  .eq('thesportsdb_team_id', String(event.idHomeTeam))
-  .maybeSingle();
+        .from('teams')
+        .select('id')
+        .eq('thesportsdb_team_id', String(event.idHomeTeam))
+        .maybeSingle();
 
-const { data: awayTeam } = await supabaseAdmin
-  .from('teams')
-  .select('id')
-  .eq('thesportsdb_team_id', String(event.idAwayTeam))
-  .maybeSingle();
+      const { data: awayTeam } = await supabaseAdmin
+        .from('teams')
+        .select('id')
+        .eq('thesportsdb_team_id', String(event.idAwayTeam))
+        .maybeSingle();
 
       if (!homeTeam || !awayTeam) {
         results.push({
           event: event.strEvent,
           status: 'team_not_found',
-          homeName,
-          awayName,
+          homeName: event.strHomeTeam,
+          awayName: event.strAwayTeam,
+          idHomeTeam: event.idHomeTeam,
+          idAwayTeam: event.idAwayTeam,
         });
         continue;
       }
@@ -65,7 +73,6 @@ const { data: awayTeam } = await supabaseAdmin
         .select('id, manually_overridden, api_sync_enabled')
         .eq('home_team_id', homeTeam.id)
         .eq('away_team_id', awayTeam.id)
-        .eq('kickoff_at', event.strTimestamp)
         .maybeSingle();
 
       if (!match) {
@@ -106,6 +113,9 @@ const { data: awayTeam } = await supabaseAdmin
     return NextResponse.json({
       success: true,
       count: results.length,
+      updated: results.filter((r) => r.status === 'updated').length,
+      teamNotFound: results.filter((r) => r.status === 'team_not_found'),
+      matchNotFound: results.filter((r) => r.status === 'match_not_found'),
       results,
     });
   } catch (error) {
