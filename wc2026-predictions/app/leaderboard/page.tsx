@@ -12,6 +12,16 @@ type LeaderboardRow = {
   correct_results_count: number;
   first_scorers_count: number;
   champion_bonus_points: number;
+
+  // Colonnes optionnelles si elles existent déjà dans ta vue leaderboard.
+  // Si elles n'existent pas, la page fonctionne quand même avec 0.
+  awards_bonus_points?: number | null;
+  awards_total_points?: number | null;
+  best_player_points?: number | null;
+  top_scorer_points?: number | null;
+  top_assist_points?: number | null;
+  top_assister_points?: number | null;
+  best_goalkeeper_points?: number | null;
 };
 
 type League = {
@@ -35,6 +45,7 @@ export default function LeaderboardPage() {
   const [leagues, setLeagues] = useState<League[]>([]);
   const [leagueMembers, setLeagueMembers] = useState<LeagueMemberRow[]>([]);
   const [selectedLeagueId, setSelectedLeagueId] = useState('global');
+  const [openedUserId, setOpenedUserId] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
@@ -103,10 +114,7 @@ export default function LeaderboardPage() {
 
     const normalizedLeagues: League[] = ((myLeaguesData || []) as MyLeagueRow[])
       .map((row) => {
-        if (Array.isArray(row.leagues)) {
-          return row.leagues[0] || null;
-        }
-
+        if (Array.isArray(row.leagues)) return row.leagues[0] || null;
         return row.leagues;
       })
       .filter(Boolean) as League[];
@@ -115,7 +123,9 @@ export default function LeaderboardPage() {
     setLeagues(normalizedLeagues);
 
     if (normalizedLeagues.length > 0) {
-      setSelectedLeagueId(normalizedLeagues[0].id);
+      setSelectedLeagueId((current) =>
+        current === 'global' ? normalizedLeagues[0].id : current
+      );
     } else {
       setSelectedLeagueId('global');
     }
@@ -123,11 +133,10 @@ export default function LeaderboardPage() {
     const leagueIds = normalizedLeagues.map((league) => league.id);
 
     if (leagueIds.length > 0) {
-      
-    const { data: membersData, error: membersError } = await supabase
-  .from('league_members_public')
-  .select('league_id, user_id')
-  .in('league_id', leagueIds);
+      const { data: membersData, error: membersError } = await supabase
+        .from('league_members_public')
+        .select('league_id, user_id')
+        .in('league_id', leagueIds);
 
       if (membersError) {
         setMessage(`Erreur membres ligues : ${membersError.message}`);
@@ -168,6 +177,152 @@ export default function LeaderboardPage() {
     return '';
   }
 
+  function getAwardPoints(player: LeaderboardRow) {
+    return (
+      player.awards_bonus_points ??
+      player.awards_total_points ??
+      (player.best_player_points ?? 0) +
+        (player.top_scorer_points ?? 0) +
+        (player.top_assist_points ?? player.top_assister_points ?? 0) +
+        (player.best_goalkeeper_points ?? 0)
+    );
+  }
+
+  function getTournamentPredictionPoints(player: LeaderboardRow) {
+    return (player.champion_bonus_points ?? 0) + getAwardPoints(player);
+  }
+
+  function getMatchPredictionPoints(player: LeaderboardRow) {
+    return Math.max(
+      0,
+      (player.total_points ?? 0) - getTournamentPredictionPoints(player)
+    );
+  }
+
+  function getTotalPredictionsLabel(player: LeaderboardRow) {
+    const tournamentPredictionsCount = 5; // champion + 4 trophées individuels
+    return player.predictions_count + tournamentPredictionsCount;
+  }
+
+  function renderDetails(player: LeaderboardRow) {
+    const awardPoints = getAwardPoints(player);
+    const topAssistPoints = player.top_assist_points ?? player.top_assister_points ?? 0;
+
+    return (
+      <tr>
+        <td colSpan={6} style={{ padding: 0 }}>
+          <div
+            style={{
+              margin: '0 10px 14px 10px',
+              padding: 16,
+              borderRadius: 14,
+              background: 'rgba(15, 23, 42, 0.72)',
+              border: '1px solid rgba(255,255,255,0.10)',
+            }}
+          >
+            <h3 style={{ marginTop: 0, marginBottom: 12 }}>
+              Détail des points de {player.username}
+            </h3>
+
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                gap: 12,
+              }}
+            >
+              <div className="card" style={{ margin: 0 }}>
+                <p className="small">Points matchs</p>
+                <h2 style={{ margin: 0 }}>{getMatchPredictionPoints(player)} pts</h2>
+                <p className="small" style={{ marginBottom: 0 }}>
+                  {player.predictions_count} prono(s) match
+                </p>
+              </div>
+
+              <div className="card" style={{ margin: 0 }}>
+                <p className="small">Champion</p>
+                <h2 style={{ margin: 0 }}>+{player.champion_bonus_points ?? 0} pts</h2>
+                <p className="small" style={{ marginBottom: 0 }}>
+                  Pronostic champion du monde
+                </p>
+              </div>
+
+              <div className="card" style={{ margin: 0 }}>
+                <p className="small">Trophées individuels</p>
+                <h2 style={{ margin: 0 }}>+{awardPoints} pts</h2>
+                <p className="small" style={{ marginBottom: 0 }}>
+                  Joueur, buteur, passeur, gardien
+                </p>
+              </div>
+            </div>
+
+            <div style={{ overflowX: 'auto', marginTop: 14 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <tbody>
+                  <tr style={{ borderTop: '1px solid rgba(255,255,255,0.10)' }}>
+                    <td style={{ padding: 10 }}>🎯 Scores exacts</td>
+                    <td style={{ padding: 10, fontWeight: 800 }}>
+                      {player.exact_scores_count}
+                    </td>
+                  </tr>
+
+                  <tr style={{ borderTop: '1px solid rgba(255,255,255,0.10)' }}>
+                    <td style={{ padding: 10 }}>✅ Bons résultats</td>
+                    <td style={{ padding: 10, fontWeight: 800 }}>
+                      {player.correct_results_count}
+                    </td>
+                  </tr>
+
+                  <tr style={{ borderTop: '1px solid rgba(255,255,255,0.10)' }}>
+                    <td style={{ padding: 10 }}>⚽ Premiers buteurs trouvés</td>
+                    <td style={{ padding: 10, fontWeight: 800 }}>
+                      {player.first_scorers_count}
+                    </td>
+                  </tr>
+
+                  <tr style={{ borderTop: '1px solid rgba(255,255,255,0.10)' }}>
+                    <td style={{ padding: 10 }}>🏆 Champion</td>
+                    <td style={{ padding: 10, fontWeight: 800 }}>
+                      +{player.champion_bonus_points ?? 0} pts
+                    </td>
+                  </tr>
+
+                  <tr style={{ borderTop: '1px solid rgba(255,255,255,0.10)' }}>
+                    <td style={{ padding: 10 }}>⭐ Meilleur joueur</td>
+                    <td style={{ padding: 10, fontWeight: 800 }}>
+                      +{player.best_player_points ?? 0} pts
+                    </td>
+                  </tr>
+
+                  <tr style={{ borderTop: '1px solid rgba(255,255,255,0.10)' }}>
+                    <td style={{ padding: 10 }}>🥅 Meilleur buteur</td>
+                    <td style={{ padding: 10, fontWeight: 800 }}>
+                      +{player.top_scorer_points ?? 0} pts
+                    </td>
+                  </tr>
+
+                  <tr style={{ borderTop: '1px solid rgba(255,255,255,0.10)' }}>
+                    <td style={{ padding: 10 }}>🎁 Meilleur passeur</td>
+                    <td style={{ padding: 10, fontWeight: 800 }}>
+                      +{topAssistPoints} pts
+                    </td>
+                  </tr>
+
+                  <tr style={{ borderTop: '1px solid rgba(255,255,255,0.10)' }}>
+                    <td style={{ padding: 10 }}>🧤 Meilleur gardien</td>
+                    <td style={{ padding: 10, fontWeight: 800 }}>
+                      +{player.best_goalkeeper_points ?? 0} pts
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </td>
+      </tr>
+    );
+  }
+
   return (
     <main className="container">
       <h1>
@@ -188,7 +343,10 @@ export default function LeaderboardPage() {
 
           <select
             value={selectedLeagueId}
-            onChange={(e) => setSelectedLeagueId(e.target.value)}
+            onChange={(e) => {
+              setSelectedLeagueId(e.target.value);
+              setOpenedUserId(null);
+            }}
           >
             {leagues.map((league) => (
               <option key={league.id} value={league.id}>
@@ -226,6 +384,7 @@ export default function LeaderboardPage() {
         >
           {podium.map((player, index) => {
             const isFirst = index === 0;
+            const tournamentPoints = getTournamentPredictionPoints(player);
 
             return (
               <div
@@ -258,9 +417,9 @@ export default function LeaderboardPage() {
                   {player.total_points} pts
                 </p>
 
-                {player.champion_bonus_points > 0 && (
+                {tournamentPoints > 0 && (
                   <p className="small" style={{ marginTop: 8 }}>
-                    🏆 Bonus champion : +{player.champion_bonus_points}
+                    🏆 Pronos tournoi : +{tournamentPoints}
                   </p>
                 )}
 
@@ -292,55 +451,63 @@ export default function LeaderboardPage() {
                   <th style={{ padding: 10 }}>Rang</th>
                   <th style={{ padding: 10 }}>Joueur</th>
                   <th style={{ padding: 10 }}>Points</th>
-                  <th style={{ padding: 10 }}>Champion</th>
-                  <th style={{ padding: 10 }}>Scores exacts</th>
-                  <th style={{ padding: 10 }}>Bons résultats</th>
-                  <th style={{ padding: 10 }}>Buteurs trouvés</th>
-                  <th style={{ padding: 10 }}>Pronos</th>
+                  <th style={{ padding: 10 }}>Total pronos</th>
+                  <th style={{ padding: 10 }}>Pronos tournoi</th>
+                  <th style={{ padding: 10 }}>Détail</th>
                 </tr>
               </thead>
 
               <tbody>
-                {filteredRows.map((player, index) => (
-                  <tr
-                    key={player.user_id}
-                    style={{
-                      borderTop: '1px solid rgba(255,255,255,0.10)',
-                    }}
-                  >
-                    <td style={{ padding: 10, fontWeight: 800 }}>
-                      {index < 3 ? medal(index) : `#${index + 1}`}
-                    </td>
+                {filteredRows.map((player, index) => {
+                  const isOpen = openedUserId === player.user_id;
+                  const tournamentPoints = getTournamentPredictionPoints(player);
 
-                    <td style={{ padding: 10, fontWeight: 700 }}>
-                      {player.username}
-                    </td>
+                  return (
+                    <>
+                      <tr
+                        key={player.user_id}
+                        style={{
+                          borderTop: '1px solid rgba(255,255,255,0.10)',
+                        }}
+                      >
+                        <td style={{ padding: 10, fontWeight: 800 }}>
+                          {index < 3 ? medal(index) : `#${index + 1}`}
+                        </td>
 
-                    <td style={{ padding: 10, fontWeight: 900 }}>
-                      {player.total_points}
-                    </td>
+                        <td style={{ padding: 10, fontWeight: 700 }}>
+                          {player.username}
+                        </td>
 
-                    <td style={{ padding: 10, fontWeight: 800 }}>
-                      +{player.champion_bonus_points ?? 0}
-                    </td>
+                        <td style={{ padding: 10, fontWeight: 900 }}>
+                          {player.total_points}
+                        </td>
 
-                    <td style={{ padding: 10 }}>
-                      {player.exact_scores_count}
-                    </td>
+                        <td style={{ padding: 10 }}>
+                          {getTotalPredictionsLabel(player)}
+                          <span className="small"> dont {player.predictions_count} matchs</span>
+                        </td>
 
-                    <td style={{ padding: 10 }}>
-                      {player.correct_results_count}
-                    </td>
+                        <td style={{ padding: 10, fontWeight: 800 }}>
+                          +{tournamentPoints} pts
+                        </td>
 
-                    <td style={{ padding: 10 }}>
-                      {player.first_scorers_count}
-                    </td>
+                        <td style={{ padding: 10 }}>
+                          <button
+                            type="button"
+                            className="secondary"
+                            onClick={() =>
+                              setOpenedUserId(isOpen ? null : player.user_id)
+                            }
+                          >
+                            {isOpen ? 'Masquer' : 'Voir le détail'}
+                          </button>
+                        </td>
+                      </tr>
 
-                    <td style={{ padding: 10 }}>
-                      {player.predictions_count}
-                    </td>
-                  </tr>
-                ))}
+                      {isOpen && renderDetails(player)}
+                    </>
+                  );
+                })}
               </tbody>
             </table>
           </div>
