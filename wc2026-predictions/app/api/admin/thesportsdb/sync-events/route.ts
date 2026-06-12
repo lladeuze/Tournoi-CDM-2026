@@ -121,13 +121,15 @@ export async function GET() {
       );
     }
 
-   const response = await fetch(
-  `https://www.thesportsdb.com/api/v1/json/${API_KEY}/eventsseason.php?id=${LEAGUE_ID}&s=2026`,
-  { cache: 'no-store' }
-);
+    const response = await fetch(
+      `https://www.thesportsdb.com/api/v1/json/${API_KEY}/eventsseason.php?id=${LEAGUE_ID}&s=2026`,
+      { cache: 'no-store' }
+    );
 
-const data = await response.json();
-const events = data.events || [];
+    const data = await response.json();
+    const events = data.events || [];
+
+    const results = [];
 
     for (const event of events) {
       const homeTeamResult = await findOrAutoMapTeam(
@@ -211,9 +213,7 @@ const events = data.events || [];
       success: true,
       count: results.length,
       updated: results.filter((r) => r.status === 'updated').length,
-      autoMapped: results.filter(
-        (r) => r.homeAutoMapped || r.awayAutoMapped
-      ).length,
+      autoMapped: results.filter((r) => r.homeAutoMapped || r.awayAutoMapped).length,
       teamNotFound: results.filter((r) => r.status === 'team_not_found'),
       matchNotFound: results.filter((r) => r.status === 'match_not_found'),
       results,
