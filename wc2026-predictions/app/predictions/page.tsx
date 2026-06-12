@@ -173,12 +173,7 @@ function getResult(home: number, away: number) {
 function calculateLivePoints(prediction: Prediction | undefined, match: Match) {
   if (!prediction) return null;
 
-  if (
-    match.home_score === null ||
-    match.away_score === null ||
-    prediction.predicted_home_score === null ||
-    prediction.predicted_away_score === null
-  ) {
+  if (match.home_score === null || match.away_score === null) {
     return null;
   }
 
@@ -220,7 +215,6 @@ function calculateLivePoints(prediction: Prediction | undefined, match: Match) {
     firstScorerCorrect,
   };
 }
-
 
 export default function PredictionsPage() {
   const [matches, setMatches] = useState<Match[]>([]);
@@ -300,9 +294,7 @@ export default function PredictionsPage() {
     setPredictions(byMatch);
 
     const myLeagues =
-      leagueMembersData
-        ?.map((row: any) => row.leagues)
-        .filter(Boolean) || [];
+      leagueMembersData?.map((row: any) => row.leagues).filter(Boolean) || [];
 
     setLeagues(myLeagues);
 
@@ -313,7 +305,7 @@ export default function PredictionsPage() {
     setSelectedDate((currentDate) => {
       const currentDateKey = toDateKey(currentDate);
 
-      const stillHasMatchesOnCurrentDate = loadedMatches.some((match) => {
+      const stillHasMatchesOnCurrentDate = loadedMatches.some((match: Match) => {
         return (
           match.status !== 'finished' &&
           toDateKey(new Date(match.kickoff_at)) === currentDateKey
@@ -322,7 +314,9 @@ export default function PredictionsPage() {
 
       if (stillHasMatchesOnCurrentDate) return currentDate;
 
-      const firstUpcoming = loadedMatches.find((match) => match.status !== 'finished');
+      const firstUpcoming = loadedMatches.find(
+        (match: Match) => match.status !== 'finished'
+      );
 
       return firstUpcoming ? new Date(firstUpcoming.kickoff_at) : currentDate;
     });
@@ -367,67 +361,59 @@ export default function PredictionsPage() {
     return player.team_abr || (player.team_id ? teams[player.team_id]?.code : null) || '???';
   }
 
-  function getTeamFlagByCode(code?: string | null) {
-    const normalizedCode = code?.trim().toUpperCase();
-
-    if (!normalizedCode) return '🏳️';
-
-    return flagsByCode[normalizedCode] || '🏳️';
-  }
-
   function getTeamCodeByName(teamName: string) {
     const normalizedName = teamName.trim().toLowerCase();
 
     const codeByName: Record<string, string> = {
-      'mexique': 'MEX',
+      mexique: 'MEX',
       'afrique du sud': 'RSA',
       'corée du sud': 'KOR',
-      'tchéquie': 'CZE',
-      'canada': 'CAN',
+      tchéquie: 'CZE',
+      canada: 'CAN',
       'bosnie-herzégovine': 'BIH',
-      'qatar': 'QAT',
-      'suisse': 'SUI',
-      'brésil': 'BRA',
-      'maroc': 'MAR',
-      'haïti': 'HAI',
-      'écosse': 'SCO',
+      qatar: 'QAT',
+      suisse: 'SUI',
+      brésil: 'BRA',
+      maroc: 'MAR',
+      haïti: 'HAI',
+      écosse: 'SCO',
       'états-unis': 'USA',
-      'paraguay': 'PAR',
-      'australie': 'AUS',
-      'turquie': 'TUR',
-      'allemagne': 'GER',
-      'curaçao': 'CUW',
+      paraguay: 'PAR',
+      australie: 'AUS',
+      turquie: 'TUR',
+      allemagne: 'GER',
+      curaçao: 'CUW',
       "côte d'ivoire": 'CIV',
-      'équateur': 'ECU',
+      équateur: 'ECU',
       'pays-bas': 'NED',
-      'japon': 'JPN',
-      'suède': 'SWE',
-      'tunisie': 'TUN',
-      'belgique': 'BEL',
-      'égypte': 'EGY',
-      'iran': 'IRN',
+      japon: 'JPN',
+      suède: 'SWE',
+      tunisie: 'TUN',
+      belgique: 'BEL',
+      égypte: 'EGY',
+      iran: 'IRN',
       'nouvelle-zélande': 'NZL',
-      'espagne': 'ESP',
+      espagne: 'ESP',
       'cap-vert': 'CPV',
       'arabie saoudite': 'KSA',
-      'uruguay': 'URU',
-      'france': 'FRA',
-      'sénégal': 'SEN',
-      'irak': 'IRQ',
-      'norvège': 'NOR',
-      'argentine': 'ARG',
-      'algérie': 'ALG',
-      'autriche': 'AUT',
-      'jordanie': 'JOR',
-      'portugal': 'POR',
+      uruguay: 'URU',
+      france: 'FRA',
+      sénégal: 'SEN',
+      irak: 'IRQ',
+      norvège: 'NOR',
+      argentine: 'ARG',
+      algérie: 'ALG',
+      autriche: 'AUT',
+      jordanie: 'JOR',
+      portugal: 'POR',
       'rd congo': 'COD',
-      'ouzbékistan': 'UZB',
-      'ouzbekistan': 'UZB',
-      'colombie': 'COL',
-      'angleterre': 'ENG',
-      'croatie': 'CRO',
-      'ghana': 'GHA',
-      'panama': 'PAN',
+      ouzbékistan: 'UZB',
+      ouzbekistan: 'UZB',
+      colombie: 'COL',
+      angleterre: 'ENG',
+      croatie: 'CRO',
+      ghana: 'GHA',
+      panama: 'PAN',
     };
 
     return codeByName[normalizedName] || null;
@@ -622,7 +608,7 @@ export default function PredictionsPage() {
       return setMessage('Trop tard : le match a déjà commencé.');
     }
 
-    const p = predictions[match.id];  
+    const p = predictions[match.id];
 
     if (!p) {
       return setMessage('Encode un score avant de sauver.');
@@ -683,12 +669,7 @@ export default function PredictionsPage() {
           <p>Aucun prono disponible pour cette ligue.</p>
         ) : (
           <div style={{ overflowX: 'auto' }}>
-            <table
-              style={{
-                width: '100%',
-                borderCollapse: 'collapse',
-              }}
-            >
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
                   <th style={{ textAlign: 'left', padding: 8 }}>Joueur</th>
@@ -728,29 +709,32 @@ export default function PredictionsPage() {
   }
 
   function renderMatchCard(match: Match, mode: ViewMode) {
-  const locked = new Date(match.kickoff_at).getTime() <= Date.now();
-  const p = predictions[match.id];
+    const locked = new Date(match.kickoff_at).getTime() <= Date.now();
+    const p = predictions[match.id];
 
-  const livePreview =
-    (match.status === 'live' || match.status === 'active') && p
-      ? calculateLivePoints(p, match)
+    const livePreview =
+      (match.status === 'live' || match.status === 'active') && p
+        ? calculateLivePoints(p, match)
+        : null;
+
+    const homeTeam = match.home_team_id ? teams[match.home_team_id] : null;
+    const awayTeam = match.away_team_id ? teams[match.away_team_id] : null;
+
+    const availablePlayers = getMatchPlayers(match);
+    const filteredAvailablePlayers = getFilteredMatchPlayers(match);
+
+    const selectedPlayer = p?.predicted_first_scorer_id
+      ? players.find((player) => player.id === p.predicted_first_scorer_id) ||
+        getMatchPlayers(match).find(
+          (player) => player.id === p.predicted_first_scorer_id
+        )
       : null;
-
-  const homeTeam = match.home_team_id ? teams[match.home_team_id] : null;
-  const awayTeam = match.away_team_id ? teams[match.away_team_id] : null;
 
     const selectedScorerLabel = selectedPlayer
       ? `${selectedPlayer.name} — ${getPlayerAbr(selectedPlayer)}`
       : p?.predicted_first_scorer
       ? p.predicted_first_scorer
       : 'Aucun buteur';
-
-    const selectedPlayer = p?.predicted_first_scorer_id
-  ? players.find((player) => player.id === p.predicted_first_scorer_id) ||
-    getMatchPlayers(match).find(
-      (player) => player.id === p.predicted_first_scorer_id
-    )
-  : null;
 
     const bonusUsedForPhase = bonusUsedByPhase[match.phase];
     const bonusUnavailable =
@@ -759,7 +743,11 @@ export default function PredictionsPage() {
     const scorerDropdownOpen = openScorerForMatch === match.id;
 
     const cardStateClass =
-      p?.points >= 11
+      livePreview?.points && livePreview.points >= 11
+        ? 'perfect'
+        : livePreview?.points && livePreview.points >= 7
+        ? 'good'
+        : p?.points >= 11
         ? 'perfect'
         : p?.points >= 7
         ? 'good'
@@ -778,8 +766,8 @@ export default function PredictionsPage() {
           }`}
         >
           <div className="points-pill">
-  {livePreview ? `${livePreview.points} pts live` : `${p?.points ?? 0} pts`}
-</div>
+            {livePreview ? `${livePreview.points} pts live` : `${p?.points ?? 0} pts`}
+          </div>
 
           <div className="prediction-badges">
             {!p && mode === 'upcoming' && (
@@ -800,29 +788,65 @@ export default function PredictionsPage() {
 
             {p?.double_bonus && <span className="badge fire">🔥 BONUS x2</span>}
 
-            {p?.points >= 11 && <span className="badge perfect">🏆 PERFECT</span>}
+            {livePreview?.points !== undefined && livePreview.points >= 11 && (
+              <span className="badge perfect">🏆 PERFECT LIVE</span>
+            )}
+
+            {!livePreview && p?.points >= 11 && (
+              <span className="badge perfect">🏆 PERFECT</span>
+            )}
           </div>
 
           {livePreview && (
-  <div
-    style={{
-      marginTop: 12,
-      marginBottom: 14,
-      padding: '12px 14px',
-      borderRadius: 14,
-      background: 'rgba(250, 204, 21, 0.12)',
-      border: '1px solid rgba(250, 204, 21, 0.35)',
-      color: '#fde68a',
-      fontWeight: 800,
-    }}
-  >
-    🔴 Points provisoires : {livePreview.points} pts
+            <div
+              style={{
+                marginTop: 12,
+                marginBottom: 14,
+                padding: '12px 14px',
+                borderRadius: 14,
+                background: 'rgba(250, 204, 21, 0.12)',
+                border: '1px solid rgba(250, 204, 21, 0.35)',
+                color: '#fde68a',
+                fontWeight: 800,
+              }}
+            >
+              🔴 Points provisoires : {livePreview.points} pts
 
-    <div style={{ marginTop: 6, fontSize: '0.8rem', fontWeight: 500 }}>
-      Si le score actuel reste comme ça jusqu’à la fin du match.
-    </div>
-  </div>
-)}
+              <div style={{ marginTop: 6, fontSize: '0.8rem', fontWeight: 500 }}>
+                Si le score actuel reste comme ça jusqu’à la fin du match.
+              </div>
+
+              <div
+                style={{
+                  marginTop: 10,
+                  display: 'flex',
+                  gap: 8,
+                  flexWrap: 'wrap',
+                  fontSize: '0.75rem',
+                }}
+              >
+                {livePreview.exactScore && (
+                  <span className="badge saved">Score exact +5</span>
+                )}
+
+                {!livePreview.exactScore && livePreview.correctResult && (
+                  <span className="badge saved">Bon résultat +3</span>
+                )}
+
+                {livePreview.firstScoringTeamCorrect && (
+                  <span className="badge saved">1ère équipe +2</span>
+                )}
+
+                {livePreview.firstScorerCorrect && (
+                  <span className="badge saved">1er buteur +4</span>
+                )}
+
+                {p?.double_bonus && (
+                  <span className="badge fire">x2 appliqué</span>
+                )}
+              </div>
+            </div>
+          )}
 
           <p className="small">
             {phaseLabels[match.phase] || match.phase} ·{' '}
@@ -903,55 +927,68 @@ export default function PredictionsPage() {
             </div>
           </div>
 
+          {livePreview && (
+            <div
+              style={{
+                textAlign: 'center',
+                marginBottom: 14,
+                fontWeight: 900,
+                color: '#fde68a',
+              }}
+            >
+              Score actuel : {match.home_score} - {match.away_score}
+            </div>
+          )}
+
           <div
             className="score-box"
             style={{ justifyContent: 'center', marginBottom: 14 }}
           >
             <input
-  disabled={readOnly}
-  type="number"
-  min="0"
-  max="15"
-  inputMode="numeric"
-  placeholder="0"
-  value={p?.predicted_home_score ?? ''}
-  onFocus={(e) => {
-    if (e.target.value === '0') {
-      e.target.value = '';
-    }
-  }}
-  onChange={(e) =>
-    update(
-      match,
-      'predicted_home_score',
-      e.target.value === '' ? '0' : e.target.value
-    )
-  }
-/>
+              disabled={readOnly}
+              type="number"
+              min="0"
+              max="15"
+              inputMode="numeric"
+              placeholder="0"
+              value={p?.predicted_home_score ?? ''}
+              onFocus={(e) => {
+                if (e.target.value === '0') {
+                  e.target.value = '';
+                }
+              }}
+              onChange={(e) =>
+                update(
+                  match,
+                  'predicted_home_score',
+                  e.target.value === '' ? '0' : e.target.value
+                )
+              }
+            />
 
-<div className="score-separator">-</div>
+            <div className="score-separator">-</div>
 
-<input
-  disabled={readOnly}
-  type="number"
-  min="0"
-  max="15"
-  inputMode="numeric"
-  placeholder="0"
-  value={p?.predicted_away_score ?? ''}
-  onFocus={(e) => {
-    if (e.target.value === '0') {
-      e.target.value = '';
-    }
-  }}
-  onChange={(e) =>
-    update(
-      match,
-      'predicted_away_score',
-      e.target.value === '' ? '0' : e.target.value
-    )
-  }
-/>
+            <input
+              disabled={readOnly}
+              type="number"
+              min="0"
+              max="15"
+              inputMode="numeric"
+              placeholder="0"
+              value={p?.predicted_away_score ?? ''}
+              onFocus={(e) => {
+                if (e.target.value === '0') {
+                  e.target.value = '';
+                }
+              }}
+              onChange={(e) =>
+                update(
+                  match,
+                  'predicted_away_score',
+                  e.target.value === '' ? '0' : e.target.value
+                )
+              }
+            />
           </div>
 
           <div className="compact-row">
