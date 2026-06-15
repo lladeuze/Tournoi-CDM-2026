@@ -24,11 +24,17 @@ export async function POST(req: Request) {
       { onConflict: 'endpoint' }
     );
 
-    if (error) throw error;
+    if (error) {
+      console.error('Erreur Supabase push_subscriptions:', error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
 
     return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error(error);
-    return NextResponse.json({ error: 'Erreur abonnement push' }, { status: 500 });
+  } catch (error: any) {
+    console.error('Erreur subscribe push:', error);
+    return NextResponse.json(
+      { error: error.message || 'Erreur abonnement push' },
+      { status: 500 }
+    );
   }
 }
