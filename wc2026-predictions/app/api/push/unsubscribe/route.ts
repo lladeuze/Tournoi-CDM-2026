@@ -15,7 +15,7 @@ export async function POST(req: Request) {
     }
 
     const { error } = await supabaseAdmin
-      .from('push_subscription')
+      .from('push_subscriptions')
       .delete()
       .eq('endpoint', endpoint);
 
