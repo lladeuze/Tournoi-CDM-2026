@@ -41,7 +41,7 @@ export async function GET(req: Request) {
 
   for (const match of matches || []) {
     const { data: subscriptions, error: subError } = await supabaseAdmin
-      .from('push_subscription')
+      .from('push_subscriptions')
       .select('user_id, endpoint, p256dh, auth');
 
     if (subError) continue;
@@ -78,7 +78,7 @@ export async function GET(req: Request) {
 
         if (error.statusCode === 404 || error.statusCode === 410) {
           await supabaseAdmin
-            .from('push_subscription')
+            .from('push_subscriptions')
             .delete()
             .eq('endpoint', sub.endpoint);
         }
