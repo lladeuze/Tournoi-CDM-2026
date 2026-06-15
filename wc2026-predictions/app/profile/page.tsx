@@ -285,87 +285,102 @@ export default function ProfilePage() {
   }
 
   async function enableNotifications() {
-    try {
-      setNotificationsLoading(true);
-      setMessage('');
+  try {
+    setNotificationsLoading(true);
+    setMessage('');
 
-      if (!userId) {
-        setMessage('Connecte-toi pour activer les notifications.');
-        return;
-      }
-
-      if (typeof window === 'undefined') return;
-
-      if (!('serviceWorker' in navigator)) {
-        setMessage("Les notifications ne sont pas supportées sur cet appareil.");
-        return;
-      }
-
-      if (!('PushManager' in window)) {
-        setMessage("Les notifications push ne sont pas supportées sur cet appareil.");
-        return;
-      }
-
-      if (!('Notification' in window)) {
-        setMessage("Les notifications ne sont pas disponibles sur cet appareil.");
-        return;
-      }
-
-      const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-
-      if (!vapidPublicKey) {
-        setMessage('Clé publique VAPID manquante.');
-        return;
-      }
-
-      const permission = await Notification.requestPermission();
-
-      if (permission !== 'granted') {
-        setMessage('Notifications refusées.');
-        setNotificationsEnabled(false);
-        return;
-      }
-
-      const registration = await navigator.serviceWorker.register('/sw.js');
-
-      let subscription = await registration.pushManager.getSubscription();
-
-      if (!subscription) {
-        subscription = await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
-        });
-      }
-
-      const res = await fetch('/api/push/subscribe', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId,
-          subscription,
-        }),
-      });
-
-      if (!res.ok) {
-        setMessage("Erreur lors de l'activation des notifications.");
-        setNotificationsEnabled(false);
-        return;
-      }
-
-      setNotificationsEnabled(true);
-      setMessage(
-        'Notifications activées. Tu recevras un rappel 1h avant les matchs non pronostiqués.'
-      );
-    } catch (error) {
-      console.error('Erreur notifications :', error);
-      setMessage("Impossible d'activer les notifications.");
-      setNotificationsEnabled(false);
-    } finally {
-      setNotificationsLoading(false);
+    if (!userId) {
+      setMessage('Connecte-toi pour activer les notifications.');
+      return;
     }
+
+    if (typeof window === 'undefined') return;
+
+    if (!('serviceWorker' in navigator)) {
+      setMessage("Les notifications ne sont pas supportées sur cet appareil.");
+      return;
+    }
+
+    if (!('PushManager' in window)) {
+      setMessage("Les notifications push ne sont pas supportées sur cet appareil.");
+      return;
+    }
+
+    if (!('Notification' in window)) {
+      setMessage("Les notifications ne sont pas disponibles sur cet appareil.");
+      return;
+    }
+
+    const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+
+    if (!vapidPublicKey) {
+      setMessage('Clé publique VAPID manquante.');
+      return;
+    }
+
+    const permission = await Notification.requestPermission();
+
+    if (permission !== 'granted') {
+      setMessage('Notifications refusées.');
+      setNotificationsEnabled(false);
+      return;
+    }
+
+    const registration = await navigator.serviceWorker.register('/sw.js');
+
+    let subscription = await registration.pushManager.getSubscription();
+
+    if (!subscription) {
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+      });
+    }
+
+    const payload = subscription.toJSON();
+
+    const res = await fetch('/api/push/subscribe', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        userId,
+        subscription: payload,
+      }),
+    });
+
+    const result = await res.json();
+
+    console.log('PUSH RESULT', result);
+
+    if (!res.ok) {
+      setMessage(
+        `Erreur abonnement : ${result.error || JSON.stringify(result)}`
+      );
+      setNotificationsEnabled(false);
+      return;
+    }
+
+    setNotificationsEnabled(true);
+
+    setMessage(
+      'Notifications activées. Tu recevras un rappel 1h avant les matchs non pronostiqués.'
+    );
+  } catch (error: any) {
+    console.error(error);
+
+    setMessage(
+      `Erreur notifications : ${
+        error?.message || JSON.stringify(error)
+      }`
+    );
+
+    setNotificationsEnabled(false);
+  } finally {
+    setNotificationsLoading(false);
   }
+}
 
   async function disableNotifications() {
     try {
