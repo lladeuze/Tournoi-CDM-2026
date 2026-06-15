@@ -56,6 +56,14 @@ const phaseLabels: Record<string, string> = {
   final: 'Finale',
 };
 
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+
+  return Uint8Array.from([...rawData].map((char) => char.charCodeAt(0)));
+}
+
 export default function ProfilePage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -67,6 +75,7 @@ export default function ProfilePage() {
   const [predictions, setPredictions] = useState<PredictionRow[]>([]);
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
 
   useEffect(() => {
     loadProfile();
@@ -251,6 +260,83 @@ export default function ProfilePage() {
     setMessage('Mot de passe mis à jour.');
   }
 
+  async function enableNotifications() {
+    try {
+      setNotificationsLoading(true);
+      setMessage('');
+
+      if (!userId) {
+        setMessage('Connecte-toi pour activer les notifications.');
+        return;
+      }
+
+      if (typeof window === 'undefined') return;
+
+      if (!('serviceWorker' in navigator)) {
+        setMessage("Les notifications ne sont pas supportées sur cet appareil.");
+        return;
+      }
+
+      if (!('PushManager' in window)) {
+        setMessage("Les notifications push ne sont pas supportées sur cet appareil.");
+        return;
+      }
+
+      if (!('Notification' in window)) {
+        setMessage("Les notifications ne sont pas disponibles sur cet appareil.");
+        return;
+      }
+
+      const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+
+      if (!vapidPublicKey) {
+        setMessage('Clé publique VAPID manquante.');
+        return;
+      }
+
+      const permission = await Notification.requestPermission();
+
+      if (permission !== 'granted') {
+        setMessage('Notifications refusées.');
+        return;
+      }
+
+      const registration = await navigator.serviceWorker.register('/sw.js');
+
+      let subscription = await registration.pushManager.getSubscription();
+
+      if (!subscription) {
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+        });
+      }
+
+      const res = await fetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId,
+          subscription,
+        }),
+      });
+
+      if (!res.ok) {
+        setMessage("Erreur lors de l'activation des notifications.");
+        return;
+      }
+
+      setMessage('Notifications activées. Tu recevras un rappel 1h avant les matchs non pronostiqués.');
+    } catch (error) {
+      console.error('Erreur notifications :', error);
+      setMessage("Impossible d'activer les notifications.");
+    } finally {
+      setNotificationsLoading(false);
+    }
+  }
+
   const bonusUsed = useMemo(() => {
     return predictions.filter((prediction) => prediction.double_bonus);
   }, [predictions]);
@@ -335,6 +421,16 @@ export default function ProfilePage() {
               </div>
 
               <button onClick={updateUsername}>Sauvegarder le pseudo</button>
+
+              <button onClick={enableNotifications} disabled={notificationsLoading}>
+                {notificationsLoading
+                  ? 'Activation des notifications...'
+                  : 'Activer les notifications de pronostics'}
+              </button>
+
+              <p className="small" style={{ margin: 0 }}>
+                Reçois un rappel 1h avant un match si tu n’as pas encore encodé ton prono.
+              </p>
             </div>
 
             <hr style={{ margin: '24px 0', opacity: 0.15 }} />
