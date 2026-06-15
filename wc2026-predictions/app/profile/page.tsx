@@ -75,11 +75,33 @@ export default function ProfilePage() {
   const [predictions, setPredictions] = useState<PredictionRow[]>([]);
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
+
   const [notificationsLoading, setNotificationsLoading] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
 
   useEffect(() => {
     loadProfile();
   }, []);
+
+  async function checkNotificationStatus() {
+    if (typeof window === 'undefined') return;
+
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      setNotificationsEnabled(false);
+      return;
+    }
+
+    const registration = await navigator.serviceWorker.getRegistration();
+
+    if (!registration) {
+      setNotificationsEnabled(false);
+      return;
+    }
+
+    const subscription = await registration.pushManager.getSubscription();
+
+    setNotificationsEnabled(!!subscription);
+  }
 
   async function loadProfile() {
     setLoading(true);
@@ -102,6 +124,8 @@ export default function ProfilePage() {
     }
 
     setUserId(user.id);
+
+    await checkNotificationStatus();
 
     const [
       { data: profileData, error: profileError },
@@ -298,6 +322,7 @@ export default function ProfilePage() {
 
       if (permission !== 'granted') {
         setMessage('Notifications refusées.');
+        setNotificationsEnabled(false);
         return;
       }
 
@@ -325,15 +350,80 @@ export default function ProfilePage() {
 
       if (!res.ok) {
         setMessage("Erreur lors de l'activation des notifications.");
+        setNotificationsEnabled(false);
         return;
       }
 
-      setMessage('Notifications activées. Tu recevras un rappel 1h avant les matchs non pronostiqués.');
+      setNotificationsEnabled(true);
+      setMessage(
+        'Notifications activées. Tu recevras un rappel 1h avant les matchs non pronostiqués.'
+      );
     } catch (error) {
       console.error('Erreur notifications :', error);
       setMessage("Impossible d'activer les notifications.");
+      setNotificationsEnabled(false);
     } finally {
       setNotificationsLoading(false);
+    }
+  }
+
+  async function disableNotifications() {
+    try {
+      setNotificationsLoading(true);
+      setMessage('');
+
+      if (typeof window === 'undefined') return;
+
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        setNotificationsEnabled(false);
+        return;
+      }
+
+      const registration = await navigator.serviceWorker.getRegistration();
+
+      if (!registration) {
+        setNotificationsEnabled(false);
+        return;
+      }
+
+      const subscription = await registration.pushManager.getSubscription();
+
+      if (!subscription) {
+        setNotificationsEnabled(false);
+        return;
+      }
+
+      const endpoint = subscription.endpoint;
+
+      await subscription.unsubscribe();
+
+      await fetch('/api/push/unsubscribe', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          endpoint,
+        }),
+      });
+
+      setNotificationsEnabled(false);
+      setMessage('Notifications désactivées.');
+    } catch (error) {
+      console.error('Erreur désactivation notifications :', error);
+      setMessage('Erreur lors de la désactivation des notifications.');
+    } finally {
+      setNotificationsLoading(false);
+    }
+  }
+
+  async function toggleNotifications() {
+    if (notificationsLoading) return;
+
+    if (notificationsEnabled) {
+      await disableNotifications();
+    } else {
+      await enableNotifications();
     }
   }
 
@@ -422,15 +512,64 @@ export default function ProfilePage() {
 
               <button onClick={updateUsername}>Sauvegarder le pseudo</button>
 
-              <button onClick={enableNotifications} disabled={notificationsLoading}>
-                {notificationsLoading
-                  ? 'Activation des notifications...'
-                  : 'Activer les notifications de pronostics'}
-              </button>
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: 16,
+                  padding: 14,
+                  borderRadius: 14,
+                  background: 'rgba(255,255,255,0.04)',
+                  border: '1px solid rgba(255,255,255,0.10)',
+                }}
+              >
+                <div>
+                  <strong>🔔 Notifications de pronostics</strong>
 
-              <p className="small" style={{ margin: 0 }}>
-                Reçois un rappel 1h avant un match si tu n’as pas encore encodé ton prono.
-              </p>
+                  <p className="small" style={{ margin: '4px 0 0 0' }}>
+                    Rappel 1h avant un match si aucun prono n’est encodé.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={toggleNotifications}
+                  disabled={notificationsLoading}
+                  aria-pressed={notificationsEnabled}
+                  aria-label={
+                    notificationsEnabled
+                      ? 'Désactiver les notifications'
+                      : 'Activer les notifications'
+                  }
+                  style={{
+                    width: 58,
+                    minWidth: 58,
+                    height: 32,
+                    padding: 3,
+                    borderRadius: 999,
+                    border: 'none',
+                    cursor: notificationsLoading ? 'not-allowed' : 'pointer',
+                    background: notificationsEnabled ? '#22c55e' : '#64748b',
+                    opacity: notificationsLoading ? 0.65 : 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: notificationsEnabled ? 'flex-end' : 'flex-start',
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 26,
+                      height: 26,
+                      borderRadius: '50%',
+                      background: '#ffffff',
+                      display: 'block',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
+                    }}
+                  />
+                </button>
+              </div>
             </div>
 
             <hr style={{ margin: '24px 0', opacity: 0.15 }} />
