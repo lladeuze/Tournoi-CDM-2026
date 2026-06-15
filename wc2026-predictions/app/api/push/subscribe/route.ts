@@ -14,7 +14,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Données manquantes' }, { status: 400 });
     }
 
-    const { error } = await supabaseAdmin.from('push_subscription').upsert(
+    const { error } = await supabaseAdmin.from('push_subscriptions').upsert(
       {
         user_id: userId,
         endpoint: subscription.endpoint,
