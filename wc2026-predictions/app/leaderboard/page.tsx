@@ -1,308 +1,350 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';import { supabase } from '@/lib/supabase';
+import { useEffect, useMemo, useState } from 'react';
+import { supabase } from '@/lib/supabase';
 
-type LeaderboardRow = {user_id: string;username: string;total_points: number;predictions_count: number;exact_scores_count: number;correct_results_count: number;first_scorers_count: number;champion_bonus_points: number;};
+type LeaderboardRow = {
+  user_id: string;
+  username: string;
+  total_points: number;
+  predictions_count: number;
+  exact_scores_count: number;
+  correct_results_count: number;
+  first_scorers_count: number;
+  champion_bonus_points: number;
+};
 
-type League = {id: string;name: string;code: string;};
+type League = {
+  id: string;
+  name: string;
+  code: string;
+};
 
-type LeagueMemberRow = {league_id: string;user_id: string;};
+type LeagueMemberRow = {
+  league_id: string;
+  user_id: string;
+};
 
-type MyLeagueRow = {league_id: string;leagues: League | League[] | null;};
+type MyLeagueRow = {
+  league_id: string;
+  leagues: League | League[] | null;
+};
 
-export default function LeaderboardPage() {const [rows, setRows] = useState<LeaderboardRow[]>([]);const [leagues, setLeagues] = useState<League[]>([]);const [leagueMembers, setLeagueMembers] = useState<LeagueMemberRow[]>([]);const [selectedLeagueId, setSelectedLeagueId] = useState('global');
+export default function LeaderboardPage() {
+  const [rows, setRows] = useState<LeaderboardRow[]>([]);
+  const [leagues, setLeagues] = useState<League[]>([]);
+  const [leagueMembers, setLeagueMembers] = useState<LeagueMemberRow[]>([]);
+  const [selectedLeagueId, setSelectedLeagueId] = useState('global');
 
-const [loading, setLoading] = useState(true);const [message, setMessage] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState('');
 
-useEffect(() => {loadLeaderboard();}, []);
+  useEffect(() => {
+    loadLeaderboard();
+  }, []);
 
-async function loadLeaderboard() {setLoading(true);setMessage('');
+  async function loadLeaderboard() {
+    setLoading(true);
+    setMessage('');
 
-const { data: userData, error: userError } = await supabase.auth.getUser();
+    const { data: userData, error: userError } = await supabase.auth.getUser();
 
-if (userError) {
-  setMessage(`Erreur utilisateur : ${userError.message}`);
-  setLoading(false);
-  return;
-}
-
-const user = userData.user;
-
-if (!user) {
-  setMessage('Connecte-toi pour voir le classement.');
-  setLoading(false);
-  return;
-}
-
-const [
-  { data: leaderboardData, error: leaderboardError },
-  { data: myLeaguesData, error: myLeaguesError },
-] = await Promise.all([
-  supabase
-    .from('leaderboard')
-    .select('*')
-    .order('total_points', { ascending: false })
-    .order('exact_scores_count', { ascending: false })
-    .order('correct_results_count', { ascending: false }),
-
-  supabase
-    .from('league_members_public')
-    .select(
-      `
-      league_id,
-      leagues (
-        id,
-        name,
-        code
-      )
-    `
-    )
-    .eq('user_id', user.id),
-]);
-
-if (leaderboardError) {
-  setMessage(`Erreur classement : ${leaderboardError.message}`);
-  setLoading(false);
-  return;
-}
-
-if (myLeaguesError) {
-  setMessage(`Erreur ligues : ${myLeaguesError.message}`);
-  setLoading(false);
-  return;
-}
-
-const normalizedLeagues: League[] = ((myLeaguesData || []) as MyLeagueRow[])
-  .map((row) => {
-    if (Array.isArray(row.leagues)) {
-      return row.leagues[0] || null;
+    if (userError) {
+      setMessage(`Erreur utilisateur : ${userError.message}`);
+      setLoading(false);
+      return;
     }
 
-    return row.leagues;
-  })
-  .filter(Boolean) as League[];
+    const user = userData.user;
 
-setRows((leaderboardData || []) as LeaderboardRow[]);
-setLeagues(normalizedLeagues);
+    if (!user) {
+      setMessage('Connecte-toi pour voir le classement.');
+      setLoading(false);
+      return;
+    }
 
-if (normalizedLeagues.length > 0) {
-  setSelectedLeagueId(normalizedLeagues[0].id);
-} else {
-  setSelectedLeagueId('global');
-}
+    const [
+      { data: leaderboardData, error: leaderboardError },
+      { data: myLeaguesData, error: myLeaguesError },
+    ] = await Promise.all([
+      supabase
+        .from('leaderboard')
+        .select('*')
+        .order('total_points', { ascending: false })
+        .order('exact_scores_count', { ascending: false })
+        .order('correct_results_count', { ascending: false }),
 
-const leagueIds = normalizedLeagues.map((league) => league.id);
+      supabase
+        .from('league_members_public')
+        .select(
+          `
+          league_id,
+          leagues (
+            id,
+            name,
+            code
+          )
+        `
+        )
+        .eq('user_id', user.id),
+    ]);
 
-if (leagueIds.length > 0) {
-  
-const { data: membersData, error: membersError } = await supabase
+    if (leaderboardError) {
+      setMessage(`Erreur classement : ${leaderboardError.message}`);
+      setLoading(false);
+      return;
+    }
 
-.from('league_members_public').select('league_id, user_id').in('league_id', leagueIds);
+    if (myLeaguesError) {
+      setMessage(`Erreur ligues : ${myLeaguesError.message}`);
+      setLoading(false);
+      return;
+    }
 
-  if (membersError) {
-    setMessage(`Erreur membres ligues : ${membersError.message}`);
+    const normalizedLeagues: League[] = ((myLeaguesData || []) as MyLeagueRow[])
+      .map((row) => {
+        if (Array.isArray(row.leagues)) {
+          return row.leagues[0] || null;
+        }
+
+        return row.leagues;
+      })
+      .filter(Boolean) as League[];
+
+    setRows((leaderboardData || []) as LeaderboardRow[]);
+    setLeagues(normalizedLeagues);
+
+    if (normalizedLeagues.length > 0) {
+      setSelectedLeagueId(normalizedLeagues[0].id);
+    } else {
+      setSelectedLeagueId('global');
+    }
+
+    const leagueIds = normalizedLeagues.map((league) => league.id);
+
+    if (leagueIds.length > 0) {
+      const { data: membersData, error: membersError } = await supabase
+        .from('league_members_public')
+        .select('league_id, user_id')
+        .in('league_id', leagueIds);
+
+      if (membersError) {
+        setMessage(`Erreur membres ligues : ${membersError.message}`);
+        setLoading(false);
+        return;
+      }
+
+      setLeagueMembers((membersData || []) as LeagueMemberRow[]);
+    } else {
+      setLeagueMembers([]);
+    }
+
     setLoading(false);
-    return;
   }
 
-  setLeagueMembers((membersData || []) as LeagueMemberRow[]);
-} else {
-  setLeagueMembers([]);
-}
+  const filteredRows = useMemo(() => {
+    if (selectedLeagueId === 'global') return rows;
 
-setLoading(false);
+    const allowedUserIds = new Set(
+      leagueMembers
+        .filter((member) => member.league_id === selectedLeagueId)
+        .map((member) => member.user_id)
+    );
 
-}
+    return rows.filter((row) => allowedUserIds.has(row.user_id));
+  }, [rows, leagueMembers, selectedLeagueId]);
 
-const filteredRows = useMemo(() => {if (selectedLeagueId === 'global') return rows;
+  const selectedLeague = useMemo(() => {
+    return leagues.find((league) => league.id === selectedLeagueId) || null;
+  }, [leagues, selectedLeagueId]);
 
-const allowedUserIds = new Set(
-  leagueMembers
-    .filter((member) => member.league_id === selectedLeagueId)
-    .map((member) => member.user_id)
-);
+  const podium = useMemo(() => filteredRows.slice(0, 3), [filteredRows]);
 
-return rows.filter((row) => allowedUserIds.has(row.user_id));
+  function medal(index: number) {
+    if (index === 0) return '🥇';
+    if (index === 1) return '🥈';
+    if (index === 2) return '🥉';
+    return '';
+  }
 
-}, [rows, leagueMembers, selectedLeagueId]);
+  return (
+    <main className="container">
+      <h1>
+        🏆{' '}
+        {selectedLeagueId === 'global'
+          ? 'Classement global'
+          : `Classement — ${selectedLeague?.name || 'Ligue'}`}
+      </h1>
 
-const selectedLeague = useMemo(() => {return leagues.find((league) => league.id === selectedLeagueId) || null;}, [leagues, selectedLeagueId]);
+      {message && <p className="error">{message}</p>}
+      {loading && <p className="small">Chargement du classement...</p>}
 
-const podium = useMemo(() => filteredRows.slice(0, 3), [filteredRows]);
+      {!loading && (
+        <div className="card">
+          <h2>Filtrer le classement</h2>
 
-function medal(index: number) {if (index === 0) return '🥇';if (index === 1) return '🥈';if (index === 2) return '🥉';return '';}
+          <label>Ligue</label>
 
-return (🏆{' '}{selectedLeagueId === 'global'? 'Classement global': Classement — ${selectedLeague?.name || 'Ligue'}}
-
-  {message && <p className="error">{message}</p>}
-  {loading && <p className="small">Chargement du classement...</p>}
-
-  {!loading && (
-    <div className="card">
-      <h2>Filtrer le classement</h2>
-
-      <label>Ligue</label>
-
-      <select
-        value={selectedLeagueId}
-        onChange={(e) => setSelectedLeagueId(e.target.value)}
-      >
-        {leagues.map((league) => (
-          <option key={league.id} value={league.id}>
-            🏟️ {league.name}
-          </option>
-        ))}
-
-        <option value="global">🌍 Classement global</option>
-      </select>
-
-      {selectedLeagueId !== 'global' && selectedLeague && (
-        <p className="small" style={{ marginTop: 10 }}>
-          Code de la ligue : <strong>{selectedLeague.code}</strong>
-        </p>
-      )}
-    </div>
-  )}
-
-  {!loading && filteredRows.length === 0 && (
-    <div className="card">
-      <p>Aucun classement disponible pour cette sélection.</p>
-    </div>
-  )}
-
-  {!loading && podium.length > 0 && (
-    <section
-      style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-        gap: 16,
-        alignItems: 'end',
-        marginTop: 24,
-        marginBottom: 32,
-      }}
-    >
-      {podium.map((player, index) => {
-        const isFirst = index === 0;
-
-        return (
-          <div
-            key={player.user_id}
-            className="card"
-            style={{
-              textAlign: 'center',
-              border: isFirst
-                ? '2px solid rgba(250, 204, 21, 0.8)'
-                : '1px solid rgba(255,255,255,0.14)',
-              transform: isFirst ? 'scale(1.04)' : 'scale(1)',
-              boxShadow: isFirst
-                ? '0 0 35px rgba(250, 204, 21, 0.22)'
-                : 'none',
-            }}
+          <select
+            value={selectedLeagueId}
+            onChange={(e) => setSelectedLeagueId(e.target.value)}
           >
-            <div style={{ fontSize: 44 }}>{medal(index)}</div>
+            {leagues.map((league) => (
+              <option key={league.id} value={league.id}>
+                🏟️ {league.name}
+              </option>
+            ))}
 
-            <p className="small">#{index + 1}</p>
+            <option value="global">🌍 Classement global</option>
+          </select>
 
-            <h2 style={{ marginBottom: 8 }}>{player.username}</h2>
-
-            <p
-              style={{
-                fontSize: 32,
-                fontWeight: 900,
-                margin: 0,
-              }}
-            >
-              {player.total_points} pts
+          {selectedLeagueId !== 'global' && selectedLeague && (
+            <p className="small" style={{ marginTop: 10 }}>
+              Code de la ligue : <strong>{selectedLeague.code}</strong>
             </p>
+          )}
+        </div>
+      )}
 
-            {player.champion_bonus_points > 0 && (
-              <p className="small" style={{ marginTop: 8 }}>
-                🏆 Bonus champion : +{player.champion_bonus_points}
-              </p>
-            )}
+      {!loading && filteredRows.length === 0 && (
+        <div className="card">
+          <p>Aucun classement disponible pour cette sélection.</p>
+        </div>
+      )}
 
-            <p className="small" style={{ marginTop: 12 }}>
-              🎯 {player.exact_scores_count} score(s) exact(s)
-              <br />
-              ⚽ {player.first_scorers_count} buteur(s) trouvé(s)
-            </p>
-          </div>
-        );
-      })}
-    </section>
-  )}
-
-  {!loading && filteredRows.length > 0 && (
-    <section className="card">
-      <h2>Classement complet</h2>
-
-      <div style={{ overflowX: 'auto' }}>
-        <table
+      {!loading && podium.length > 0 && (
+        <section
           style={{
-            width: '100%',
-            borderCollapse: 'collapse',
-            marginTop: 16,
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+            gap: 16,
+            alignItems: 'end',
+            marginTop: 24,
+            marginBottom: 32,
           }}
         >
-          <thead>
-            <tr style={{ textAlign: 'left' }}>
-              <th style={{ padding: 10 }}>Rang</th>
-              <th style={{ padding: 10 }}>Joueur</th>
-              <th style={{ padding: 10 }}>Points</th>
-              <th style={{ padding: 10 }}>Champion</th>
-              <th style={{ padding: 10 }}>Scores exacts</th>
-              <th style={{ padding: 10 }}>Bons résultats</th>
-              <th style={{ padding: 10 }}>Buteurs trouvés</th>
-              <th style={{ padding: 10 }}>Pronos</th>
-            </tr>
-          </thead>
+          {podium.map((player, index) => {
+            const isFirst = index === 0;
 
-          <tbody>
-            {filteredRows.map((player, index) => (
-              <tr
+            return (
+              <div
                 key={player.user_id}
+                className="card"
                 style={{
-                  borderTop: '1px solid rgba(255,255,255,0.10)',
+                  textAlign: 'center',
+                  border: isFirst
+                    ? '2px solid rgba(250, 204, 21, 0.8)'
+                    : '1px solid rgba(255,255,255,0.14)',
+                  transform: isFirst ? 'scale(1.04)' : 'scale(1)',
+                  boxShadow: isFirst
+                    ? '0 0 35px rgba(250, 204, 21, 0.22)'
+                    : 'none',
                 }}
               >
-                <td style={{ padding: 10, fontWeight: 800 }}>
-                  {index < 3 ? medal(index) : `#${index + 1}`}
-                </td>
+                <div style={{ fontSize: 44 }}>{medal(index)}</div>
 
-                <td style={{ padding: 10, fontWeight: 700 }}>
-                  {player.username}
-                </td>
+                <p className="small">#{index + 1}</p>
 
-                <td style={{ padding: 10, fontWeight: 900 }}>
-                  {player.total_points}
-                </td>
+                <h2 style={{ marginBottom: 8 }}>{player.username}</h2>
 
-                <td style={{ padding: 10, fontWeight: 800 }}>
-                  +{player.champion_bonus_points ?? 0}
-                </td>
+                <p
+                  style={{
+                    fontSize: 32,
+                    fontWeight: 900,
+                    margin: 0,
+                  }}
+                >
+                  {player.total_points} pts
+                </p>
 
-                <td style={{ padding: 10 }}>
-                  {player.exact_scores_count}
-                </td>
+                {player.champion_bonus_points > 0 && (
+                  <p className="small" style={{ marginTop: 8 }}>
+                    🏆 Bonus champion : +{player.champion_bonus_points}
+                  </p>
+                )}
 
-                <td style={{ padding: 10 }}>
-                  {player.correct_results_count}
-                </td>
+                <p className="small" style={{ marginTop: 12 }}>
+                  🎯 {player.exact_scores_count} score(s) exact(s)
+                  <br />
+                  ⚽ {player.first_scorers_count} buteur(s) trouvé(s)
+                </p>
+              </div>
+            );
+          })}
+        </section>
+      )}
 
-                <td style={{ padding: 10 }}>
-                  {player.first_scorers_count}
-                </td>
+      {!loading && filteredRows.length > 0 && (
+        <section className="card">
+          <h2>Classement complet</h2>
 
-                <td style={{ padding: 10 }}>
-                  {player.predictions_count}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </section>
-  )}
-</main>
+          <div style={{ overflowX: 'auto' }}>
+            <table
+              style={{
+                width: '100%',
+                borderCollapse: 'collapse',
+                marginTop: 16,
+              }}
+            >
+              <thead>
+                <tr style={{ textAlign: 'left' }}>
+                  <th style={{ padding: 10 }}>Rang</th>
+                  <th style={{ padding: 10 }}>Joueur</th>
+                  <th style={{ padding: 10 }}>Points</th>
+                  <th style={{ padding: 10 }}>Champion</th>
+                  <th style={{ padding: 10 }}>Scores exacts</th>
+                  <th style={{ padding: 10 }}>Bons résultats</th>
+                  <th style={{ padding: 10 }}>Buteurs trouvés</th>
+                  <th style={{ padding: 10 }}>Pronos</th>
+                </tr>
+              </thead>
 
-);}
+              <tbody>
+                {filteredRows.map((player, index) => (
+                  <tr
+                    key={player.user_id}
+                    style={{
+                      borderTop: '1px solid rgba(255,255,255,0.10)',
+                    }}
+                  >
+                    <td style={{ padding: 10, fontWeight: 800 }}>
+                      {index < 3 ? medal(index) : `#${index + 1}`}
+                    </td>
+
+                    <td style={{ padding: 10, fontWeight: 700 }}>
+                      {player.username}
+                    </td>
+
+                    <td style={{ padding: 10, fontWeight: 900 }}>
+                      {player.total_points}
+                    </td>
+
+                    <td style={{ padding: 10, fontWeight: 800 }}>
+                      +{player.champion_bonus_points ?? 0}
+                    </td>
+
+                    <td style={{ padding: 10 }}>
+                      {player.exact_scores_count}
+                    </td>
+
+                    <td style={{ padding: 10 }}>
+                      {player.correct_results_count}
+                    </td>
+
+                    <td style={{ padding: 10 }}>
+                      {player.first_scorers_count}
+                    </td>
+
+                    <td style={{ padding: 10 }}>
+                      {player.predictions_count}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+    </main>
+  );
+}
