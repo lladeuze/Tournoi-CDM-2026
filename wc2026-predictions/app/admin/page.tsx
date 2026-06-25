@@ -932,141 +932,136 @@ export default function AdminPage() {
   }
 
   return (
-    <main className="container">
-      <h1>Admin — Résultats</h1>
+  <main className="container">
+    <h1>Admin — Résultats</h1>
 
-      {isAdmin && (
-  <>
-    <div className="card">
-      <h2>🛠️ Corrections</h2>
-      <p className="small">
-        Ajouter ou modifier un prono pour un utilisateur, même si le match est commencé ou terminé.
+    {message && (
+      <p
+        className={
+          message.includes('sauvegardé') ||
+          message.includes('recalculés') ||
+          message.includes('mis à jour') ||
+          message.includes('terminée')
+            ? 'success'
+            : 'error'
+        }
+      >
+        {message}
       </p>
+    )}
 
-      <Link href="/admin/correction">
-        <button type="button" style={{ width: '100%' }}>
-          Correction pronos
-        </button>
-      </Link>
-    </div>
+    {isAdmin && (
+      <>
+        <div className="card">
+          <h2>🛠️ Corrections</h2>
+          <p className="small">
+            Ajouter ou modifier un prono pour un utilisateur, même si le match est commencé ou terminé.
+          </p>
 
-    <div className="card">
-      
-      {message && (
-        <p
-          className={
-            message.includes('sauvegardé') ||
-            message.includes('recalculés') ||
-            message.includes('mis à jour') ||
-            message.includes('terminée')
-              ? 'success'
-              : 'error'
-          }
-        >
-          {message}
-        </p>
-      )}
-
-      {isAdmin && (
-        <>
-          <div className="card">
-            <h2>⚡ Synchronisation API</h2>
-
-            <p className="small">
-              Permet de récupérer automatiquement les scores et statuts depuis TheSportsDB.
-              Le premier buteur et la première équipe qui marque restent modifiables manuellement.
-            </p>
-
-            <button type="button" onClick={syncTheSportsDB}>
-              Synchroniser TheSportsDB
+          <Link href="/admin/correction">
+            <button type="button" style={{ width: '100%' }}>
+              Correction pronos
             </button>
-          </div>
+          </Link>
+        </div>
 
-          <div className="card">
-            <h2>Filtres</h2>
+        <div className="card">
+          <h2>⚡ Synchronisation API</h2>
 
-            <div className="grid">
-              <div>
-                <label>Phase</label>
-                <select value={phaseFilter} onChange={(e) => setPhaseFilter(e.target.value)}>
-                  <option value="all">Toutes les phases</option>
+          <p className="small">
+            Permet de récupérer automatiquement les scores et statuts depuis TheSportsDB.
+            Le premier buteur et la première équipe qui marque restent modifiables manuellement.
+          </p>
 
-                  {availablePhases.map((phase) => (
-                    <option key={phase} value={phase}>
-                      {phaseLabels[phase] || phase}
-                    </option>
-                  ))}
-                </select>
-              </div>
+          <button type="button" onClick={syncTheSportsDB}>
+            Synchroniser TheSportsDB
+          </button>
+        </div>
 
-              <div>
-                <label>Statut</label>
-                <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-                  {statuses.map((status) => (
-                    <option key={status} value={status}>
-                      {status === 'all' ? 'Tous les statuts' : status}
-                    </option>
-                  ))}
-                </select>
-              </div>
+        <div className="card">
+          <h2>Filtres</h2>
 
-              <div>
-                <label>Recherche équipe</label>
-                <input
-                  placeholder="Belgique, France, BEL..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
-              </div>
+          <div className="grid">
+            <div>
+              <label>Phase</label>
+              <select value={phaseFilter} onChange={(e) => setPhaseFilter(e.target.value)}>
+                <option value="all">Toutes les phases</option>
+
+                {availablePhases.map((phase) => (
+                  <option key={phase} value={phase}>
+                    {phaseLabels[phase] || phase}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label>Statut</label>
+              <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                {statuses.map((status) => (
+                  <option key={status} value={status}>
+                    {status === 'all' ? 'Tous les statuts' : status}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label>Recherche équipe</label>
+              <input
+                placeholder="Belgique, France, BEL..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
             </div>
           </div>
+        </div>
 
-          {renderDateNavigation()}
+        {renderDateNavigation()}
 
-          <div className="card">
-            <h2>🏆 Champion officiel</h2>
+        <div className="card">
+          <h2>🏆 Champion officiel</h2>
 
-            <p className="small">
-              Ce choix déclenche les points bonus du pronostic champion dans le classement.
+          <p className="small">
+            Ce choix déclenche les points bonus du pronostic champion dans le classement.
+          </p>
+
+          <select value={winnerTeamId} onChange={(e) => setWinnerTeamId(e.target.value)}>
+            <option value="">Aucun champion officiel</option>
+
+            {Object.values(teams).map((team) => (
+              <option key={team.id} value={team.id}>
+                {team.code ? `${team.code} — ` : ''}
+                {team.name}
+              </option>
+            ))}
+          </select>
+
+          <button type="button" onClick={updateWinnerTeam} style={{ marginTop: 12 }}>
+            Sauvegarder le champion officiel
+          </button>
+
+          {tournamentSettings?.winner_team_id && (
+            <p className="small" style={{ marginTop: 10 }}>
+              Champion actuellement enregistré.
             </p>
-
-            <select value={winnerTeamId} onChange={(e) => setWinnerTeamId(e.target.value)}>
-              <option value="">Aucun champion officiel</option>
-
-              {Object.values(teams).map((team) => (
-                <option key={team.id} value={team.id}>
-                  {team.code ? `${team.code} — ` : ''}
-                  {team.name}
-                </option>
-              ))}
-            </select>
-
-            <button type="button" onClick={updateWinnerTeam} style={{ marginTop: 12 }}>
-              Sauvegarder le champion officiel
-            </button>
-
-            {tournamentSettings?.winner_team_id && (
-              <p className="small" style={{ marginTop: 10 }}>
-                Champion actuellement enregistré.
-              </p>
-            )}
-          </div>
-
-          <TournamentAwards />
-
-          {matchesForSelectedDate.length === 0 ? (
-            <div className="card">
-              <p>Aucun match ne correspond aux filtres pour ce jour-là.</p>
-            </div>
-          ) : (
-            <div style={{ display: 'grid', gap: 16 }}>
-              {matchesForSelectedDate.map((match) => renderMatchCard(match))}
-            </div>
           )}
+        </div>
 
-          {renderDateNavigation()}
-        </>
-      )}
-    </main>
-  );
-}
+        <TournamentAwards />
+
+        {matchesForSelectedDate.length === 0 ? (
+          <div className="card">
+            <p>Aucun match ne correspond aux filtres pour ce jour-là.</p>
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gap: 16 }}>
+            {matchesForSelectedDate.map((match) => renderMatchCard(match))}
+          </div>
+        )}
+
+        {renderDateNavigation()}
+      </>
+    )}
+  </main>
+);
