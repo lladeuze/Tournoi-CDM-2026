@@ -936,10 +936,21 @@ export default function AdminPage() {
       <h1>Admin — Résultats</h1>
 
       {isAdmin && (
-    <Link href="/admin/correction" className="admin-action-btn">
-      Correction pronos
-    </Link>
-  )}
+  <>
+    <div className="card">
+      <h2>🛠️ Corrections</h2>
+      <p className="small">
+        Ajouter ou modifier un prono pour un utilisateur, même si le match est commencé ou terminé.
+      </p>
+
+      <Link href="/admin/correction">
+        <button type="button" style={{ width: '100%' }}>
+          Correction pronos
+        </button>
+      </Link>
+    </div>
+
+    <div className="card">
       
       {message && (
         <p
