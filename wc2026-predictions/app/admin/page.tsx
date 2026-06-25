@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import TournamentAwards from './components/TournamentAwards';
+import Link from 'next/link';
 
 type Team = {
   id: string;
