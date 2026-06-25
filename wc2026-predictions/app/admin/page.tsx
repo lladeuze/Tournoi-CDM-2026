@@ -934,6 +934,12 @@ export default function AdminPage() {
     <main className="container">
       <h1>Admin — Résultats</h1>
 
+      {isAdmin && (
+    <Link href="/admin/correction" className="admin-action-btn">
+      Correction pronos
+    </Link>
+  )}
+      
       {message && (
         <p
           className={
