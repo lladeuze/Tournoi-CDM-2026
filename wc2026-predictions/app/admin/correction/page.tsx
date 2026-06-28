@@ -42,6 +42,7 @@ type Match = {
   away_score: number | null;
   first_scorer_id: string | null;
   first_scoring_team_id: string | null;
+  qualified_team_id: string | null;
 };
 
 type Prediction = {
@@ -51,6 +52,7 @@ type Prediction = {
   predicted_first_scorer: string | null;
   predicted_first_scorer_id: string | null;
   predicted_first_scoring_team_id: string | null;
+  predicted_qualified_team_id: string | null;
   double_bonus: boolean;
   points: number;
 };
@@ -161,6 +163,10 @@ function getResult(home: number, away: number) {
   return 'DRAW';
 }
 
+function isKnockoutMatch(match: Match) {
+  return !['group_j1', 'group_j2', 'group_j3'].includes(match.phase);
+}
+
 function calculateLivePoints(prediction: Prediction | undefined, match: Match) {
   if (!prediction) return null;
 
@@ -188,11 +194,18 @@ function calculateLivePoints(prediction: Prediction | undefined, match: Match) {
     !!match.first_scorer_id &&
     prediction.predicted_first_scorer_id === match.first_scorer_id;
 
+  const qualifiedTeamCorrect =
+    isKnockoutMatch(match) &&
+    !!prediction.predicted_qualified_team_id &&
+    !!match.qualified_team_id &&
+    prediction.predicted_qualified_team_id === match.qualified_team_id;
+
   if (exactScore) points += 5;
   else if (correctResult) points += 3;
 
   if (firstScoringTeamCorrect) points += 2;
   if (firstScorerCorrect) points += 4;
+  if (qualifiedTeamCorrect) points += 2;
 
   if (prediction.double_bonus) {
     points *= 2;
@@ -204,6 +217,7 @@ function calculateLivePoints(prediction: Prediction | undefined, match: Match) {
     correctResult,
     firstScoringTeamCorrect,
     firstScorerCorrect,
+    qualifiedTeamCorrect,
   };
 }
 
@@ -549,6 +563,8 @@ export default function CorrectionPage() {
         predicted_first_scorer_id: existing?.predicted_first_scorer_id ?? null,
         predicted_first_scoring_team_id:
           existing?.predicted_first_scoring_team_id ?? null,
+        predicted_qualified_team_id:
+          existing?.predicted_qualified_team_id ?? null,
         double_bonus: existing?.double_bonus ?? false,
         points: existing?.points ?? 0,
       };
@@ -573,6 +589,10 @@ export default function CorrectionPage() {
 
       if (field === 'predicted_first_scoring_team_id') {
         next.predicted_first_scoring_team_id = String(value) || null;
+      }
+
+      if (field === 'predicted_qualified_team_id') {
+        next.predicted_qualified_team_id = String(value) || null;
       }
 
       if (field === 'double_bonus') {
@@ -635,6 +655,9 @@ export default function CorrectionPage() {
         predicted_first_scorer_id: p.predicted_first_scorer_id || null,
         predicted_first_scoring_team_id:
           p.predicted_first_scoring_team_id || null,
+        predicted_qualified_team_id: isKnockoutMatch(match)
+          ? p.predicted_qualified_team_id || null
+          : null,
         double_bonus: p.double_bonus,
         phase: match.phase,
         updated_at: new Date().toISOString(),
@@ -660,6 +683,10 @@ export default function CorrectionPage() {
 
     const homeTeam = match.home_team_id ? teams[match.home_team_id] : null;
     const awayTeam = match.away_team_id ? teams[match.away_team_id] : null;
+    const isKnockout = isKnockoutMatch(match);
+    const qualifiedTeamName = match.qualified_team_id
+      ? teams[match.qualified_team_id]?.name || 'Équipe qualifiée encodée'
+      : null;
 
     const availablePlayers = getMatchPlayers(match);
     const filteredAvailablePlayers = getFilteredMatchPlayers(match);
@@ -807,6 +834,11 @@ export default function CorrectionPage() {
               }}
             >
               Score actuel/résultat : {match.home_score} - {match.away_score}
+              {isKnockout && qualifiedTeamName && (
+                <div style={{ marginTop: 6, fontSize: '0.85rem' }}>
+                  Qualifié : {qualifiedTeamName}
+                </div>
+              )}
             </div>
           )}
 
@@ -873,6 +905,37 @@ export default function CorrectionPage() {
                 )}
               </select>
             </div>
+
+            {isKnockout && (
+              <div>
+                <label>Équipe qualifiée</label>
+                <select
+                  disabled={readOnly}
+                  value={p?.predicted_qualified_team_id ?? ''}
+                  onChange={(e) =>
+                    update(match, 'predicted_qualified_team_id', e.target.value)
+                  }
+                >
+                  <option value="">Aucune sélection</option>
+
+                  {match.home_team_id && (
+                    <option value={match.home_team_id}>
+                      {homeTeam?.name || match.home_team}
+                    </option>
+                  )}
+
+                  {match.away_team_id && (
+                    <option value={match.away_team_id}>
+                      {awayTeam?.name || match.away_team}
+                    </option>
+                  )}
+                </select>
+
+                <p className="small" style={{ marginTop: 6 }}>
+                  Pronostic valable sur l'équipe qui passe au tour suivant.
+                </p>
+              </div>
+            )}
 
             <div>
               <label>Premier buteur</label>
