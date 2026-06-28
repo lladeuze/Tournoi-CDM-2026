@@ -324,6 +324,11 @@ export default function AdminPage() {
     return teams[teamId]?.code || '';
   }
 
+  function getTeamNameFromId(teamId: string | null) {
+    if (!teamId) return null;
+    return teams[teamId]?.name || null;
+  }
+
   function getTeamCodeByName(teamName: string) {
     const normalizedName = teamName.trim().toLowerCase();
 
@@ -494,6 +499,44 @@ export default function AdminPage() {
           };
         }
 
+        if (field === 'home_team_id') {
+          const nextHomeTeamId = value === '' ? null : value;
+          const nextHomeTeamName = getTeamNameFromId(nextHomeTeamId);
+
+          return {
+            ...match,
+            home_team_id: nextHomeTeamId,
+            home_team: nextHomeTeamName || match.home_team,
+            first_scoring_team_id:
+              match.first_scoring_team_id === match.home_team_id
+                ? nextHomeTeamId
+                : match.first_scoring_team_id,
+            qualified_team_id:
+              match.qualified_team_id === match.home_team_id
+                ? nextHomeTeamId
+                : match.qualified_team_id,
+          };
+        }
+
+        if (field === 'away_team_id') {
+          const nextAwayTeamId = value === '' ? null : value;
+          const nextAwayTeamName = getTeamNameFromId(nextAwayTeamId);
+
+          return {
+            ...match,
+            away_team_id: nextAwayTeamId,
+            away_team: nextAwayTeamName || match.away_team,
+            first_scoring_team_id:
+              match.first_scoring_team_id === match.away_team_id
+                ? nextAwayTeamId
+                : match.first_scoring_team_id,
+            qualified_team_id:
+              match.qualified_team_id === match.away_team_id
+                ? nextAwayTeamId
+                : match.qualified_team_id,
+          };
+        }
+
         return {
           ...match,
           [field]: value === '' ? null : value,
@@ -546,9 +589,15 @@ export default function AdminPage() {
         status: match.status,
         home_team_id: match.home_team_id || null,
         away_team_id: match.away_team_id || null,
+        home_team: match.home_team_id
+          ? teams[match.home_team_id]?.name || match.home_team
+          : match.home_team,
+        away_team: match.away_team_id
+          ? teams[match.away_team_id]?.name || match.away_team
+          : match.away_team,
       })
       .eq('id', match.id)
-      .select('id, home_score, away_score, first_scoring_team_id, first_scorer_id, qualified_team_id, status')
+      .select('id, home_team, away_team, home_score, away_score, home_team_id, away_team_id, first_scoring_team_id, first_scorer_id, qualified_team_id, status')
       .maybeSingle();
 
     if (error) {
