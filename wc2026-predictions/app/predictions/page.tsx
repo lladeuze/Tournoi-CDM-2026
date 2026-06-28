@@ -66,6 +66,8 @@ type OtherPrediction = {
   predicted_first_scorer: string | null;
   predicted_first_scorer_id: string | null;
   predicted_qualified_team_id: string | null;
+  double_bonus: boolean | null;
+  points: number | null;
 };
 
 type ViewMode = 'upcoming' | 'history';
@@ -196,14 +198,22 @@ function calculateLivePoints(prediction: Prediction | undefined, match: Match) {
     getResult(match.home_score, match.away_score);
 
   const firstScoringTeamCorrect =
-    !!prediction.predicted_first_scoring_team_id &&
-    !!match.first_scoring_team_id &&
-    prediction.predicted_first_scoring_team_id === match.first_scoring_team_id;
+    (match.home_score === 0 &&
+      match.away_score === 0 &&
+      !match.first_scoring_team_id &&
+      !prediction.predicted_first_scoring_team_id) ||
+    (!!prediction.predicted_first_scoring_team_id &&
+      !!match.first_scoring_team_id &&
+      prediction.predicted_first_scoring_team_id === match.first_scoring_team_id);
 
   const firstScorerCorrect =
-    !!prediction.predicted_first_scorer_id &&
-    !!match.first_scorer_id &&
-    prediction.predicted_first_scorer_id === match.first_scorer_id;
+    (match.home_score === 0 &&
+      match.away_score === 0 &&
+      !match.first_scorer_id &&
+      !prediction.predicted_first_scorer_id) ||
+    (!!prediction.predicted_first_scorer_id &&
+      !!match.first_scorer_id &&
+      prediction.predicted_first_scorer_id === match.first_scorer_id);
 
   const qualifiedTeamCorrect =
     isKnockoutMatch(match) &&
@@ -683,6 +693,8 @@ export default function PredictionsPage() {
   }
 
   function renderOtherPredictions(match: Match) {
+    const isLive = match.status === 'live' || match.status === 'active';
+
     return (
       <div className="card">
         <h2>
@@ -703,34 +715,78 @@ export default function PredictionsPage() {
                   <th style={{ textAlign: 'left', padding: 8 }}>1ère équipe</th>
                   <th style={{ textAlign: 'left', padding: 8 }}>1er buteur</th>
                   <th style={{ textAlign: 'left', padding: 8 }}>Qualifié</th>
+                  <th style={{ textAlign: 'center', padding: 8 }}>Bonus</th>
+                  <th style={{ textAlign: 'right', padding: 8 }}>Points</th>
                 </tr>
               </thead>
 
               <tbody>
-                {otherPredictions.map((prediction) => (
-                  <tr key={prediction.user_id}>
-                    <td style={{ padding: 8 }}>
-                      {prediction.username || 'Utilisateur'}
-                    </td>
+                {otherPredictions.map((prediction) => {
+                  const livePrediction: Prediction = {
+                    match_id: match.id,
+                    predicted_home_score: prediction.predicted_home_score ?? 0,
+                    predicted_away_score: prediction.predicted_away_score ?? 0,
+                    predicted_first_scorer: prediction.predicted_first_scorer,
+                    predicted_first_scorer_id: prediction.predicted_first_scorer_id,
+                    predicted_first_scoring_team_id:
+                      prediction.predicted_first_scoring_team_id,
+                    predicted_qualified_team_id:
+                      prediction.predicted_qualified_team_id,
+                    double_bonus: !!prediction.double_bonus,
+                    points: prediction.points ?? 0,
+                  };
 
-                    <td style={{ padding: 8 }}>
-                      {prediction.predicted_home_score ?? '-'} -{' '}
-                      {prediction.predicted_away_score ?? '-'}
-                    </td>
+                  const livePoints = isLive
+                    ? calculateLivePoints(livePrediction, match)?.points ?? 0
+                    : null;
 
-                    <td style={{ padding: 8 }}>
-                      {getTeamName(prediction.predicted_first_scoring_team_id)}
-                    </td>
+                  return (
+                    <tr key={prediction.user_id}>
+                      <td style={{ padding: 8 }}>
+                        {prediction.username || 'Utilisateur'}
+                      </td>
 
-                    <td style={{ padding: 8 }}>
-                      {prediction.predicted_first_scorer || '-'}
-                    </td>
+                      <td style={{ padding: 8 }}>
+                        {prediction.predicted_home_score ?? '-'} -{' '}
+                        {prediction.predicted_away_score ?? '-'}
+                      </td>
 
-                    <td style={{ padding: 8 }}>
-                      {getTeamName(prediction.predicted_qualified_team_id)}
-                    </td>
-                  </tr>
-                ))}
+                      <td style={{ padding: 8 }}>
+                        {getTeamName(prediction.predicted_first_scoring_team_id)}
+                      </td>
+
+                      <td style={{ padding: 8 }}>
+                        {prediction.predicted_first_scorer || '-'}
+                      </td>
+
+                      <td style={{ padding: 8 }}>
+                        {getTeamName(prediction.predicted_qualified_team_id)}
+                      </td>
+
+                      <td
+                        style={{
+                          padding: 8,
+                          textAlign: 'center',
+                          fontSize: '1.1rem',
+                          fontWeight: 900,
+                        }}
+                      >
+                        {prediction.double_bonus ? '✅' : '❌'}
+                      </td>
+
+                      <td
+                        style={{
+                          padding: 8,
+                          textAlign: 'right',
+                          fontWeight: 900,
+                          color: isLive ? '#fde68a' : 'inherit',
+                        }}
+                      >
+                        {isLive ? `${livePoints} live` : prediction.points ?? 0}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
