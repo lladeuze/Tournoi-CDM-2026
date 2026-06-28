@@ -41,6 +41,7 @@ type Match = {
   away_score: number | null;
   first_scorer_id: string | null;
   first_scoring_team_id: string | null;
+  qualified_team_id: string | null;
 };
 
 type Prediction = {
@@ -50,6 +51,8 @@ type Prediction = {
   predicted_first_scorer: string | null;
   predicted_first_scorer_id: string | null;
   predicted_first_scoring_team_id: string | null;
+  predicted_qualified_team_id: string | null;
+  qualified_team_correct?: boolean | null;
   double_bonus: boolean;
   points: number;
 };
@@ -62,6 +65,7 @@ type OtherPrediction = {
   predicted_first_scoring_team_id: string | null;
   predicted_first_scorer: string | null;
   predicted_first_scorer_id: string | null;
+  predicted_qualified_team_id: string | null;
 };
 
 type ViewMode = 'upcoming' | 'history';
@@ -170,6 +174,10 @@ function getResult(home: number, away: number) {
   return 'DRAW';
 }
 
+function isKnockoutMatch(match: Match) {
+  return !['group_j1', 'group_j2', 'group_j3'].includes(match.phase);
+}
+
 function calculateLivePoints(prediction: Prediction | undefined, match: Match) {
   if (!prediction) return null;
 
@@ -197,11 +205,18 @@ function calculateLivePoints(prediction: Prediction | undefined, match: Match) {
     !!match.first_scorer_id &&
     prediction.predicted_first_scorer_id === match.first_scorer_id;
 
+  const qualifiedTeamCorrect =
+    isKnockoutMatch(match) &&
+    !!prediction.predicted_qualified_team_id &&
+    !!match.qualified_team_id &&
+    prediction.predicted_qualified_team_id === match.qualified_team_id;
+
   if (exactScore) points += 5;
   else if (correctResult) points += 3;
 
   if (firstScoringTeamCorrect) points += 2;
   if (firstScorerCorrect) points += 4;
+  if (qualifiedTeamCorrect) points += 2;
 
   if (prediction.double_bonus) {
     points *= 2;
@@ -213,6 +228,7 @@ function calculateLivePoints(prediction: Prediction | undefined, match: Match) {
     correctResult,
     firstScoringTeamCorrect,
     firstScorerCorrect,
+    qualifiedTeamCorrect,
   };
 }
 
@@ -521,6 +537,9 @@ export default function PredictionsPage() {
         predicted_first_scorer_id: existing?.predicted_first_scorer_id ?? null,
         predicted_first_scoring_team_id:
           existing?.predicted_first_scoring_team_id ?? null,
+        predicted_qualified_team_id:
+          existing?.predicted_qualified_team_id ?? null,
+        qualified_team_correct: existing?.qualified_team_correct ?? null,
         double_bonus: existing?.double_bonus ?? false,
         points: existing?.points ?? 0,
       };
@@ -543,6 +562,10 @@ export default function PredictionsPage() {
 
       if (field === 'predicted_first_scoring_team_id') {
         next.predicted_first_scoring_team_id = String(value) || null;
+      }
+
+      if (field === 'predicted_qualified_team_id') {
+        next.predicted_qualified_team_id = String(value) || null;
       }
 
       if (field === 'double_bonus') {
@@ -643,6 +666,9 @@ export default function PredictionsPage() {
         predicted_first_scorer_id: p.predicted_first_scorer_id || null,
         predicted_first_scoring_team_id:
           p.predicted_first_scoring_team_id || null,
+        predicted_qualified_team_id: isKnockoutMatch(match)
+          ? p.predicted_qualified_team_id || null
+          : null,
         double_bonus: p.double_bonus,
       },
       { onConflict: 'user_id,match_id' }
@@ -676,6 +702,7 @@ export default function PredictionsPage() {
                   <th style={{ textAlign: 'left', padding: 8 }}>Score</th>
                   <th style={{ textAlign: 'left', padding: 8 }}>1ère équipe</th>
                   <th style={{ textAlign: 'left', padding: 8 }}>1er buteur</th>
+                  <th style={{ textAlign: 'left', padding: 8 }}>Qualifié</th>
                 </tr>
               </thead>
 
@@ -698,6 +725,10 @@ export default function PredictionsPage() {
                     <td style={{ padding: 8 }}>
                       {prediction.predicted_first_scorer || '-'}
                     </td>
+
+                    <td style={{ padding: 8 }}>
+                      {getTeamName(prediction.predicted_qualified_team_id)}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -719,6 +750,10 @@ export default function PredictionsPage() {
 
     const homeTeam = match.home_team_id ? teams[match.home_team_id] : null;
     const awayTeam = match.away_team_id ? teams[match.away_team_id] : null;
+    const knockoutMatch = isKnockoutMatch(match);
+    const selectedQualifiedTeam = p?.predicted_qualified_team_id
+      ? teams[p.predicted_qualified_team_id]
+      : null;
 
     const availablePlayers = getMatchPlayers(match);
     const filteredAvailablePlayers = getFilteredMatchPlayers(match);
@@ -839,6 +874,10 @@ export default function PredictionsPage() {
 
                 {livePreview.firstScorerCorrect && (
                   <span className="badge saved">1er buteur +4</span>
+                )}
+
+                {livePreview.qualifiedTeamCorrect && (
+                  <span className="badge saved">Qualifié +2</span>
                 )}
 
                 {p?.double_bonus && (
@@ -990,6 +1029,56 @@ export default function PredictionsPage() {
               }
             />
           </div>
+
+          {knockoutMatch && (
+            <div
+              style={{
+                marginBottom: 14,
+                padding: '12px 14px',
+                borderRadius: 14,
+                background: 'rgba(94,234,212,0.08)',
+                border: '1px solid rgba(94,234,212,0.18)',
+              }}
+            >
+              <label>Équipe qui se qualifie</label>
+
+              <select
+                disabled={readOnly}
+                value={p?.predicted_qualified_team_id ?? ''}
+                onChange={(e) =>
+                  update(match, 'predicted_qualified_team_id', e.target.value)
+                }
+              >
+                <option value="">Aucune sélection</option>
+
+                {match.home_team_id && (
+                  <option value={match.home_team_id}>
+                    {homeTeam?.name || match.home_team}
+                  </option>
+                )}
+
+                {match.away_team_id && (
+                  <option value={match.away_team_id}>
+                    {awayTeam?.name || match.away_team}
+                  </option>
+                )}
+              </select>
+
+              <p className="small" style={{ marginTop: 8 }}>
+                Le score reste un pronostic sur les 90 minutes. Ce choix ajoute
+                +2 points si l’équipe sélectionnée se qualifie.
+                {selectedQualifiedTeam
+                  ? ` Ton choix : ${selectedQualifiedTeam.name}.`
+                  : ''}
+              </p>
+
+              {mode === 'history' && match.qualified_team_id && (
+                <p className="small" style={{ marginTop: 6 }}>
+                  Qualifié réel : <strong>{getTeamName(match.qualified_team_id)}</strong>
+                </p>
+              )}
+            </div>
+          )}
 
           <div className="compact-row">
             <div>
@@ -1283,7 +1372,7 @@ export default function PredictionsPage() {
 
             <p className="small">
               Pronostique le vainqueur de la Coupe du Monde 2026 et gagne
-              jusqu’à 20 points bonus.
+              jusqu’à 30 points bonus si tu confirmes le même vainqueur après les groupes.
             </p>
 
             <Link href="/champion">
