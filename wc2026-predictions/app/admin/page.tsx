@@ -33,6 +33,7 @@ type Match = {
   away_score: number | null;
   first_scoring_team_id: string | null;
   first_scorer_id: string | null;
+  qualified_team_id: string | null;
   status: 'scheduled' | 'live' | 'finished';
   phase: string;
   match_label: string | null;
@@ -56,6 +57,12 @@ const phaseLabels: Record<string, string> = {
 };
 
 const statuses = ['all', 'scheduled', 'live', 'finished'];
+
+const groupPhases = ['group_j1', 'group_j2', 'group_j3'];
+
+function isKnockoutMatch(match: Match) {
+  return !groupPhases.includes(match.phase);
+}
 
 const flagsByCode: Record<string, string> = {
   MEX: 'mx',
@@ -535,12 +542,13 @@ export default function AdminPage() {
         away_score: match.away_score,
         first_scoring_team_id: match.first_scoring_team_id || null,
         first_scorer_id: match.first_scorer_id || null,
+        qualified_team_id: isKnockoutMatch(match) ? match.qualified_team_id || null : null,
         status: match.status,
         home_team_id: match.home_team_id || null,
         away_team_id: match.away_team_id || null,
       })
       .eq('id', match.id)
-      .select('id, home_score, away_score, first_scoring_team_id, first_scorer_id, status')
+      .select('id, home_score, away_score, first_scoring_team_id, first_scorer_id, qualified_team_id, status')
       .maybeSingle();
 
     if (error) {
@@ -609,6 +617,9 @@ export default function AdminPage() {
     const selectedScorerLabel = selectedPlayer
       ? `${selectedPlayer.name} — ${getPlayerAbr(selectedPlayer)}`
       : 'Aucun buteur';
+
+    const knockoutMatch = isKnockoutMatch(match);
+    const qualifiedTeam = match.qualified_team_id ? teams[match.qualified_team_id] : null;
 
     const cardStateClass =
       match.status === 'finished' ? 'good' : match.status === 'live' ? 'saved' : '';
@@ -835,6 +846,37 @@ export default function AdminPage() {
               )}
             </div>
           </div>
+
+          {knockoutMatch && (
+            <div>
+              <label>Équipe qualifiée</label>
+              <select
+                value={match.qualified_team_id ?? ''}
+                onChange={(e) => editMatch(match.id, 'qualified_team_id', e.target.value)}
+              >
+                <option value="">Aucune sélection</option>
+
+                {match.home_team_id && (
+                  <option value={match.home_team_id}>
+                    {homeCode} — {homeName}
+                  </option>
+                )}
+
+                {match.away_team_id && (
+                  <option value={match.away_team_id}>
+                    {awayCode} — {awayName}
+                  </option>
+                )}
+              </select>
+
+              {qualifiedTeam && (
+                <p className="small" style={{ marginTop: 6 }}>
+                  ✅ Qualifié : {qualifiedTeam.code ? `${qualifiedTeam.code} — ` : ''}
+                  {qualifiedTeam.name}
+                </p>
+              )}
+            </div>
+          )}
 
           <div>
             <label>Statut</label>
