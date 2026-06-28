@@ -517,3 +517,66 @@ th {
 .switch input:checked + .slider:before {
   transform: translateX(26px);
 }
+
+
+.other-predictions-table {
+  overflow-x: auto;
+}
+
+.other-predictions-cards {
+  display: none;
+}
+
+@media (max-width: 700px) {
+  .other-predictions-table {
+    display: none;
+  }
+
+  .other-predictions-cards {
+    display: grid;
+    gap: 12px;
+  }
+
+  .other-prediction-card {
+    padding: 14px;
+    border-radius: 16px;
+    background: rgba(15, 23, 42, 0.86);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+  }
+
+  .other-prediction-card-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+
+  .other-prediction-points {
+    font-weight: 900;
+    color: #5eead4;
+    white-space: nowrap;
+  }
+
+  .other-prediction-score {
+    text-align: center;
+    font-size: 1.5rem;
+    font-weight: 900;
+    margin: 10px 0 14px;
+  }
+
+  .other-prediction-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 12px;
+    font-size: 0.9rem;
+  }
+
+  .other-prediction-grid span {
+    color: rgba(255, 255, 255, 0.65);
+  }
+
+  .other-prediction-grid strong {
+    text-align: right;
+  }
+}
