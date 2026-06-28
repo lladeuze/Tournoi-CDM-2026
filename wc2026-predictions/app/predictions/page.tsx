@@ -695,8 +695,93 @@ export default function PredictionsPage() {
   function renderOtherPredictions(match: Match) {
     const isLive = match.status === 'live' || match.status === 'active';
 
+    function getDisplayedPoints(prediction: OtherPrediction) {
+      const livePrediction: Prediction = {
+        match_id: match.id,
+        predicted_home_score: prediction.predicted_home_score ?? 0,
+        predicted_away_score: prediction.predicted_away_score ?? 0,
+        predicted_first_scorer: prediction.predicted_first_scorer,
+        predicted_first_scorer_id: prediction.predicted_first_scorer_id,
+        predicted_first_scoring_team_id:
+          prediction.predicted_first_scoring_team_id,
+        predicted_qualified_team_id: prediction.predicted_qualified_team_id,
+        double_bonus: !!prediction.double_bonus,
+        points: prediction.points ?? 0,
+      };
+
+      const livePoints = isLive
+        ? calculateLivePoints(livePrediction, match)?.points ?? 0
+        : null;
+
+      return isLive ? `${livePoints} live` : `${prediction.points ?? 0}`;
+    }
+
     return (
       <div className="card">
+        <style>{`
+          .other-predictions-table {
+            overflow-x: auto;
+          }
+
+          .other-predictions-cards {
+            display: none;
+          }
+
+          @media (max-width: 700px) {
+            .other-predictions-table {
+              display: none;
+            }
+
+            .other-predictions-cards {
+              display: grid;
+              gap: 12px;
+            }
+
+            .other-prediction-card {
+              padding: 14px;
+              border-radius: 16px;
+              background: rgba(15, 23, 42, 0.86);
+              border: 1px solid rgba(255, 255, 255, 0.12);
+            }
+
+            .other-prediction-card-header {
+              display: flex;
+              justify-content: space-between;
+              gap: 12px;
+              align-items: center;
+              margin-bottom: 10px;
+            }
+
+            .other-prediction-points {
+              font-weight: 900;
+              color: #5eead4;
+              white-space: nowrap;
+            }
+
+            .other-prediction-score {
+              text-align: center;
+              font-size: 1.5rem;
+              font-weight: 900;
+              margin: 10px 0 14px;
+            }
+
+            .other-prediction-grid {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 8px 12px;
+              font-size: 0.9rem;
+            }
+
+            .other-prediction-grid span {
+              color: rgba(255, 255, 255, 0.65);
+            }
+
+            .other-prediction-grid strong {
+              text-align: right;
+            }
+          }
+        `}</style>
+
         <h2>
           Pronos - {match.home_team} vs {match.away_team}
         </h2>
@@ -706,41 +791,23 @@ export default function PredictionsPage() {
         ) : otherPredictions.length === 0 ? (
           <p>Aucun prono disponible pour cette ligue.</p>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr>
-                  <th style={{ textAlign: 'left', padding: 8 }}>Joueur</th>
-                  <th style={{ textAlign: 'left', padding: 8 }}>Score</th>
-                  <th style={{ textAlign: 'left', padding: 8 }}>1ère équipe</th>
-                  <th style={{ textAlign: 'left', padding: 8 }}>1er buteur</th>
-                  <th style={{ textAlign: 'left', padding: 8 }}>Qualifié</th>
-                  <th style={{ textAlign: 'center', padding: 8 }}>Bonus</th>
-                  <th style={{ textAlign: 'right', padding: 8 }}>Points</th>
-                </tr>
-              </thead>
+          <>
+            <div className="other-predictions-table">
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: 'left', padding: 8 }}>Joueur</th>
+                    <th style={{ textAlign: 'left', padding: 8 }}>Score</th>
+                    <th style={{ textAlign: 'left', padding: 8 }}>1ère équipe</th>
+                    <th style={{ textAlign: 'left', padding: 8 }}>1er buteur</th>
+                    <th style={{ textAlign: 'left', padding: 8 }}>Qualifié</th>
+                    <th style={{ textAlign: 'center', padding: 8 }}>Bonus</th>
+                    <th style={{ textAlign: 'right', padding: 8 }}>Points</th>
+                  </tr>
+                </thead>
 
-              <tbody>
-                {otherPredictions.map((prediction) => {
-                  const livePrediction: Prediction = {
-                    match_id: match.id,
-                    predicted_home_score: prediction.predicted_home_score ?? 0,
-                    predicted_away_score: prediction.predicted_away_score ?? 0,
-                    predicted_first_scorer: prediction.predicted_first_scorer,
-                    predicted_first_scorer_id: prediction.predicted_first_scorer_id,
-                    predicted_first_scoring_team_id:
-                      prediction.predicted_first_scoring_team_id,
-                    predicted_qualified_team_id:
-                      prediction.predicted_qualified_team_id,
-                    double_bonus: !!prediction.double_bonus,
-                    points: prediction.points ?? 0,
-                  };
-
-                  const livePoints = isLive
-                    ? calculateLivePoints(livePrediction, match)?.points ?? 0
-                    : null;
-
-                  return (
+                <tbody>
+                  {otherPredictions.map((prediction) => (
                     <tr key={prediction.user_id}>
                       <td style={{ padding: 8 }}>
                         {prediction.username || 'Utilisateur'}
@@ -782,14 +849,49 @@ export default function PredictionsPage() {
                           color: isLive ? '#fde68a' : 'inherit',
                         }}
                       >
-                        {isLive ? `${livePoints} live` : prediction.points ?? 0}
+                        {getDisplayedPoints(prediction)}
                       </td>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="other-predictions-cards">
+              {otherPredictions.map((prediction) => (
+                <div key={prediction.user_id} className="other-prediction-card">
+                  <div className="other-prediction-card-header">
+                    <strong>{prediction.username || 'Utilisateur'}</strong>
+
+                    <span className="other-prediction-points">
+                      {getDisplayedPoints(prediction)} pts
+                    </span>
+                  </div>
+
+                  <div className="other-prediction-score">
+                    {prediction.predicted_home_score ?? '-'} -{' '}
+                    {prediction.predicted_away_score ?? '-'}
+                  </div>
+
+                  <div className="other-prediction-grid">
+                    <span>1ère équipe</span>
+                    <strong>
+                      {getTeamName(prediction.predicted_first_scoring_team_id)}
+                    </strong>
+
+                    <span>1er buteur</span>
+                    <strong>{prediction.predicted_first_scorer || '-'}</strong>
+
+                    <span>Qualifié</span>
+                    <strong>{getTeamName(prediction.predicted_qualified_team_id)}</strong>
+
+                    <span>Bonus</span>
+                    <strong>{prediction.double_bonus ? '✅ Oui' : '❌ Non'}</strong>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
         )}
       </div>
     );
